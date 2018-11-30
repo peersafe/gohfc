@@ -8,20 +8,22 @@ import (
 	"time"
 )
 
-func getChainCodeObj(args []string) (*ChainCode, error) {
-	channelid := handler.client.Channel.ChannelId
-	chaincodeName := handler.client.Channel.ChaincodeName
-	chaincodeVersion := handler.client.Channel.ChaincodeVersion
+func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
+	if len(channelName) == 0 {
+		channelName = handler.client.Channel.ChannelId
+	}
+	if len(chaincodeName) == 0 {
+		chaincodeName = handler.client.Channel.ChaincodeName
+	}
 	mspId := handler.client.Channel.LocalMspId
-	if channelid == "" || chaincodeName == "" || chaincodeVersion == "" || mspId == "" {
-		return nil, fmt.Errorf("channelid or ccname or ccver  or mspId is empty")
+	if channelName == "" || chaincodeName == "" || mspId == "" {
+		return nil, fmt.Errorf("channelName or chaincodeName or mspId is empty")
 	}
 
 	chaincode := ChainCode{
-		ChannelId: channelid,
+		ChannelId: channelName,
 		Type:      ChaincodeSpec_GOLANG,
 		Name:      chaincodeName,
-		Version:   chaincodeVersion,
 		Args:      args,
 	}
 
@@ -29,22 +31,16 @@ func getChainCodeObj(args []string) (*ChainCode, error) {
 }
 
 //设置log级别
-func setLogLevel() error {
-	modelLevel := handler.client.Log.LogLevel
-	modelName := handler.client.Log.LogModelName
-	if modelLevel == "" {
-		modelLevel = "DEBUG"
-	}
+func SetLogLevel(level, name string) error {
 	format := logging.MustStringFormatter("%{shortfile} %{time:2006-01-02 15:04:05.000} [%{module}] %{level:.4s} : %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)
 	backendFormatter := logging.NewBackendFormatter(backend, format)
-	logLevel, err := logging.LogLevel(modelLevel)
+	logLevel, err := logging.LogLevel(level)
 	if err != nil {
 		return err
 	}
-	logging.SetBackend(backendFormatter).SetLevel(logLevel, "gohfc")
-	//map[k]v; eg:  var logger = logging.MustGetLogger("event")
-	logging.SetBackend(backendFormatter).SetLevel(logLevel, modelName)
+	logging.SetBackend(backendFormatter).SetLevel(logLevel, name)
+	logger.Debugf("SetLogLevel level: %s, levelName: %s\n", level, name)
 	return nil
 }
 
@@ -86,7 +82,7 @@ func getSendPeerName() []string {
 	if len(orRulePeerNames) > 0 {
 		return []string{orRulePeerNames[generateRangeNum(0, len(orRulePeerNames))]}
 	}
-	if len(peerNames) >0 {
+	if len(peerNames) > 0 {
 		return peerNames
 	}
 	var sendNameList []string

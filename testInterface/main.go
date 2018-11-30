@@ -1,16 +1,17 @@
 package main
 
 import (
+	"encoding/json"
+	"flag"
+	"fmt"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc"
-	"fmt"
-	"flag"
-	"encoding/json"
+	"time"
 )
 
 var (
-	logger = logging.MustGetLogger("testmodel")
-	funcName = flag.String("function", "", "invoke,query,listen")
+	logger   = logging.MustGetLogger("testInterface")
+	funcName = flag.String("function", "", "invoke,query,listen,checkordconn")
 )
 
 func main() {
@@ -20,18 +21,22 @@ func main() {
 		logger.Error(err)
 		return
 	}
+	if gohfc.SetLogLevel(gohfc.GetConfigLogLevel(), "testInterface"); err != nil {
+		logger.Error(err)
+		return
+	}
 	logger.Debugf("--testInterface main--")
 
 	switch *funcName {
 	case "invoke":
-		res, err := gohfc.GetHandler().Invoke([]string{"invoke", "a", "b", "1"})
+		res, err := gohfc.GetHandler().Invoke([]string{"invoke", "a", "b", "1"}, "", "")
 		if err != nil {
 			logger.Error(err)
 			return
 		}
 		logger.Debugf("----invoke--TxID--%s\n", res.TxID)
 	case "query":
-		resVal, err := gohfc.GetHandler().Query([]string{"query", "a"})
+		resVal, err := gohfc.GetHandler().Query([]string{"query", "a"}, "", "")
 		if err != nil || len(resVal) == 0 {
 			logger.Error(err)
 			return
@@ -44,19 +49,29 @@ func main() {
 			logger.Error(fmt.Errorf(resVal[0].Response.Response.GetMessage()))
 			return
 		}
-		logger.Debugf("----query--result--%s\n",resVal[0].Response.Response.GetPayload())
+		logger.Debugf("----query--result--%s\n", resVal[0].Response.Response.GetPayload())
 	case "listen":
-		ch, err := gohfc.GetHandler().ListenEventFullBlock()
+		ch, err := gohfc.GetHandler().ListenEventFullBlock("")
 		if err != nil {
 			logger.Error(err)
 			return
 		}
 		for {
 			select {
-			case b := <- ch:
+			case b := <-ch:
 				bytes, _ := json.Marshal(b)
-				logger.Debugf("---------%s\n",bytes)
+				logger.Debugf("---------%s\n", bytes)
 			}
+		}
+	case "checkordconn":
+		for {
+			ok, err := gohfc.GetHandler().GetOrdererConnect()
+			if err != nil {
+				logger.Error(err)
+				return
+			}
+			logger.Debugf("the connect is %v", ok)
+			time.Sleep(2*time.Second)
 		}
 	default:
 		flag.PrintDefaults()

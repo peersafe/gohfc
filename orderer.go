@@ -33,14 +33,6 @@ const timeout = 5
 
 // Broadcast Broadcast envelope to orderer for execution.
 func (o *Orderer) Broadcast(envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
-	if o.con == nil {
-		c, err := grpc.Dial(o.Uri, o.Opts...)
-		if err != nil {
-			return nil, fmt.Errorf("cannot connect to orderer: %s err is: %v", o.Name, err)
-		}
-		o.con = c
-		o.client = orderer.NewAtomicBroadcastClient(o.con)
-	}
 	bcc, err := o.client.Broadcast(context.Background())
 	if err != nil {
 		return nil, err
@@ -160,6 +152,7 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 			certpool := x509.NewCertPool()
 			certpool.AppendCertsFromPEM(caPem)
 			c := &tls.Config{
+				ServerName:   conf.DomainName,
 				MinVersion:   tls.VersionTLS12,
 				Certificates: []tls.Certificate{cert},
 				RootCAs:      certpool,
@@ -167,7 +160,7 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 			}
 			o.Opts = append(o.Opts, grpc.WithTransportCredentials(credentials.NewTLS(c)))
 		} else {
-			creds, err := credentials.NewClientTLSFromFile(o.caPath, "")
+			creds, err := credentials.NewClientTLSFromFile(o.caPath, conf.DomainName)
 			if err != nil {
 				return nil, fmt.Errorf("cannot read orderer %s credentials err is: %v", o.Name, err)
 			}
@@ -184,5 +177,11 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
+	c, err := grpc.Dial(o.Uri, o.Opts...)
+	if err != nil {
+		return nil, err
+	}
+	o.con = c
+	o.client = orderer.NewAtomicBroadcastClient(o.con)
 	return &o, nil
 }

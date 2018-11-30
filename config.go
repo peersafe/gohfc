@@ -66,6 +66,7 @@ type PeerConfig struct {
 	OrgName    string `yaml:"orgName"`
 	UseTLS     bool   `yaml:"useTLS"`
 	TlsPath    string `yaml:"tlsPath"`
+	DomainName string `yaml:"domainName"`
 	TlsMutual  bool   `yaml:"tlsMutual"`
 	ClientCert string `yaml:"clientCert"`
 	ClientKey  string `yaml:"clientKey"`
@@ -76,6 +77,7 @@ type OrdererConfig struct {
 	Host       string `yaml:"host"`
 	UseTLS     bool   `yaml:"useTLS"`
 	TlsPath    string `yaml:"tlsPath"`
+	DomainName string `yaml:"domainName"`
 	TlsMutual  bool   `yaml:"tlsMutual"`
 	ClientCert string `yaml:"clientCert"`
 	ClientKey  string `yaml:"clientKey"`
@@ -89,9 +91,6 @@ func NewClientConfig(path string) (*ClientConfig, error) {
 	}
 	config := new(ClientConfig)
 	err = yaml.Unmarshal([]byte(data), config)
-	if err != nil {
-		return nil, err
-	}
 	if err != nil {
 		return nil, err
 	}

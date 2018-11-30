@@ -39,16 +39,6 @@ type PeerResponse struct {
 
 // Endorse sends single transaction to single peer.
 func (p *Peer) Endorse(resp chan *PeerResponse, prop *peer.SignedProposal) {
-	if p.conn == nil {
-		conn, err := grpc.Dial(p.Uri, p.Opts...)
-		if err != nil {
-			resp <- &PeerResponse{Response: nil, Err: err, Name: p.Name}
-			return
-		}
-		p.conn = conn
-		p.client = peer.NewEndorserClient(p.conn)
-	}
-
 	proposalResp, err := p.client.ProcessProposal(context.Background(), prop)
 	if err != nil {
 		resp <- &PeerResponse{Response: nil, Name: p.Name, Err: err}
@@ -78,6 +68,7 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 			certpool := x509.NewCertPool()
 			certpool.AppendCertsFromPEM(caPem)
 			c := &tls.Config{
+				ServerName:   conf.DomainName,
 				MinVersion:   tls.VersionTLS12,
 				Certificates: []tls.Certificate{cert},
 				RootCAs:      certpool,
@@ -85,7 +76,7 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 			}
 			p.Opts = append(p.Opts, grpc.WithTransportCredentials(credentials.NewTLS(c)))
 		} else {
-			creds, err := credentials.NewClientTLSFromFile(p.caPath, "")
+			creds, err := credentials.NewClientTLSFromFile(p.caPath, conf.DomainName)
 			if err != nil {
 				return nil, fmt.Errorf("cannot read peer %s credentials err is: %v", p.Name, err)
 			}
@@ -103,5 +94,13 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
+
+	conn, err := grpc.Dial(p.Uri, p.Opts...)
+	if err != nil {
+		return nil, err
+	}
+	p.conn = conn
+	p.client = peer.NewEndorserClient(p.conn)
+
 	return &p, nil
 }
