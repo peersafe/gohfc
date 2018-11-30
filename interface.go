@@ -75,7 +75,7 @@ func GetConfigLogLevel() string {
 	return handler.client.Log.LogLevel
 }
 
-// Invoke invoke cc
+// Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
 	peerNames := getSendPeerName()
 	orderName := getSendOrderName()
@@ -89,7 +89,7 @@ func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) 
 	return sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
 }
 
-// Query query cc
+// Query query cc  ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
 	peerNames := getSendPeerName()
 	if len(peerNames) == 0 {
@@ -103,7 +103,7 @@ func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) (
 	return sdk.client.Query(*sdk.identity, *chaincode, []string{peerNames[0]})
 }
 
-// Query query qscc
+// Query query qscc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryResponse, error) {
 	peerNames := getSendPeerName()
 	if len(peerNames) == 0 {
@@ -125,6 +125,7 @@ func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryR
 	return sdk.client.Query(*sdk.identity, chaincode, []string{peerNames[0]})
 }
 
+// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
 	strBlockNum := strconv.FormatUint(blockNum, 10)
 	if len(channelName) == 0 {
@@ -154,6 +155,7 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 	return block, nil
 }
 
+// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
@@ -182,6 +184,7 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 	return chainInfo.Height, nil
 }
 
+// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
@@ -221,6 +224,7 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 	return chainInfo.Height, nil
 }
 
+// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFullBlock(channelName string) (chan parseBlock.Block, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
@@ -242,6 +246,7 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string) (chan parseBlock
 	return ch, nil
 }
 
+// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFilterBlock(channelName string) (chan EventBlockResponse, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
@@ -263,6 +268,7 @@ func (sdk *sdkHandler) ListenEventFilterBlock(channelName string) (chan EventBlo
 	return ch, nil
 }
 
+//if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 // Listen v 1.0.4 -- port ==> 7053
 func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Block, error) {
 	if len(channelName) == 0 {

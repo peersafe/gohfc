@@ -5,8 +5,9 @@ import (
 	"github.com/peersafe/gohfc"
 	"os"
 
-	"math/rand"
 	"context"
+	"github.com/peersafe/gohfc/parseBlock"
+	"math/rand"
 )
 
 const ADM_PK = "/path/to/admin/cert.pem"
@@ -80,7 +81,7 @@ func main() {
 }
 
 func eventFullBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
-	ch := make(chan gohfc.EventBlockResponse)
+	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
 	err := client.ListenForFullBlock(ctx, *identity, "peer0", "testchannel", ch)
 	if err != nil {
@@ -94,7 +95,7 @@ func eventFullBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
 
 func eventFilteredBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
 
-	ch := make(chan gohfc.EventBlockResponse)
+	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
 	err := client.ListenForFullBlock(ctx, *identity, "peer0", "testchannel", ch)
 	if err != nil {
@@ -467,7 +468,7 @@ func modifyIdentity(ca *gohfc.FabricCAClient, identity *gohfc.Identity) {
 				Value: "new value 1",
 			},
 		},
-		Secret: "new password",}
+		Secret: "new password"}
 	resp, err := ca.ModifyIdentity(identity, req)
 	if err != nil {
 		fmt.Println(err)
