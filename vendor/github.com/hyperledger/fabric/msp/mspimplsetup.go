@@ -96,11 +96,7 @@ func (msp *bccspmsp) setupCrypto(conf *m.FabricMSPConfig) error {
 		msp.cryptoConfig.IdentityIdentifierHashFunction = bccsp.SHA256
 		mspLogger.Debugf("CryptoConfig.IdentityIdentifierHashFunction was nil. Move to defaults.")
 	}
-	if bccsp.UseGMCrypto {
-		msp.cryptoConfig.SignatureHashFamily = bccsp.SM3
-		msp.cryptoConfig.IdentityIdentifierHashFunction = bccsp.SM3
-		mspLogger.Debugf("Move CryptoConfig to SM3.")
-	}
+
 	return nil
 }
 

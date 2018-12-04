@@ -147,14 +147,6 @@ func SetupBCCSPKeystoreConfig(bccspConfig *factory.FactoryOpts, keystoreDir stri
 		}
 	}
 
-	if bccsp.UseGMCrypto {
-		bccspConfig = factory.GetDefaultOpts()
-		if bccspConfig.GmOpts.FileKeystore == nil ||
-			bccspConfig.GmOpts.FileKeystore.KeyStorePath == "" {
-			bccspConfig.GmOpts.Ephemeral = false
-			bccspConfig.GmOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: keystoreDir}
-		}
-	}
 	return bccspConfig
 }
 
@@ -341,11 +333,6 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 	cryptoConfig := &msp.FabricCryptoConfig{
 		SignatureHashFamily:            bccsp.SHA2,
 		IdentityIdentifierHashFunction: bccsp.SHA256,
-	}
-
-	if bccsp.UseGMCrypto {
-		cryptoConfig.SignatureHashFamily = bccsp.SM3
-		cryptoConfig.IdentityIdentifierHashFunction = bccsp.SM3
 	}
 
 	// Compose FabricMSPConfig

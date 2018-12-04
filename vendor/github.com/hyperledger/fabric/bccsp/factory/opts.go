@@ -15,28 +15,17 @@ limitations under the License.
 */
 package factory
 
-import "github.com/hyperledger/fabric/bccsp"
-
 // GetDefaultOpts offers a default implementation for Opts
 // returns a new instance every time
 func GetDefaultOpts() *FactoryOpts {
-	if bccsp.UseGMCrypto {
-		return &FactoryOpts{
-			ProviderName: "GM",
-			GmOpts: &GmOpts{
-				Ephemeral: true,
-			},
-		}
-	} else {
-		return &FactoryOpts{
-			ProviderName: "SW",
-			SwOpts: &SwOpts{
-				HashFamily: "SHA2",
-				SecLevel:   256,
+	return &FactoryOpts{
+		ProviderName: "SW",
+		SwOpts: &SwOpts{
+			HashFamily: "SHA2",
+			SecLevel:   256,
 
-				Ephemeral: true,
-			},
-		}
+			Ephemeral: true,
+		},
 	}
 }
 
