@@ -1,4 +1,4 @@
-// +build !gm
+// +build gm
 
 /*
 Copyright: Cognition Foundry. All Rights Reserved.
@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/sha512"
+	"crypto/sm3"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
@@ -136,6 +137,9 @@ func (c *ECCryptSuite) Sign(msg []byte, k interface{}) ([]byte, error) {
 // If result of a signature is high-S value we have to subtract S from curve.N
 // For more details https://github.com/bitcoin/bips/blob/master/bip-0062.mediawiki
 func (c *ECCryptSuite) preventMalleability(k *ecdsa.PrivateKey, S *big.Int) {
+	if k.Curve == elliptic.P256SM2() {
+		return
+	}
 	halfOrder := ecCurveHalfOrders[k.Curve]
 	if S.Cmp(halfOrder) == 1 {
 		S.Sub(k.Params().N, S)
@@ -162,6 +166,8 @@ func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 		suite = &ECCryptSuite{curve: elliptic.P384(), sigAlgorithm: x509.ECDSAWithSHA384}
 	case "P521-SHA512":
 		suite = &ECCryptSuite{curve: elliptic.P521(), sigAlgorithm: x509.ECDSAWithSHA512}
+	case "P256SM2":
+		suite = &ECCryptSuite{curve: elliptic.P256SM2(), sigAlgorithm: x509.ECDSAWithSHA256}
 	default:
 		return nil, ErrInvalidAlgorithm
 	}
@@ -175,6 +181,8 @@ func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 		suite.hashFunction = sha3.New256
 	case "SHA3-384":
 		suite.hashFunction = sha3.New384
+	case "SM3":
+		suite.hashFunction = sm3.New
 	default:
 		return nil, ErrInvalidHash
 	}

@@ -304,11 +304,11 @@ func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
 			} else {
 				return false, fmt.Errorf("the orderer connect state %s:%s", orderName, ord.con.GetState().String())
 			}
-		}else {
+		} else {
 			return false, fmt.Errorf("the orderer or connect is nil")
 		}
-	}else {
-		return false, fmt.Errorf("the orderer %s is not match",orderName)
+	} else {
+		return false, fmt.Errorf("the orderer %s is not match", orderName)
 	}
 }
 
@@ -316,6 +316,15 @@ func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
 func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
 	blockObj := parseBlock.ParseBlock(block, 0)
 	return &blockObj, nil
+}
+
+// param channel only used for create channel, if upate config channel should be nil
+func (sdk *sdkHandler) ConfigUpdate(payload []byte, channel string) error {
+	orderName := getSendOrderName()
+	if channel != "" {
+		return sdk.client.ConfigUpdate(*sdk.identity, payload, channel, orderName)
+	}
+	return sdk.client.ConfigUpdate(*sdk.identity, payload, sdk.client.Channel.ChannelId, orderName)
 }
 
 type KeyValue struct {

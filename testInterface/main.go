@@ -71,7 +71,7 @@ func main() {
 				return
 			}
 			logger.Debugf("the connect is %v", ok)
-			time.Sleep(2*time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	default:
 		flag.PrintDefaults()
