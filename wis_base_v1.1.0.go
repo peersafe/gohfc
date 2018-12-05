@@ -85,7 +85,7 @@ func (w *WisHandler) ListenEventFullBlock(response chan<- EventBlockResponse) er
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err = w.FaCli.ListenForFilteredBlock(ctx, *w.Ide, w.EventPeer, w.Channeluuids, response)
+	err = w.FaCli.ListenForFilteredBlock(ctx, *w.Ide, -1, w.EventPeer, w.Channeluuids, response)
 	if err != nil {
 		cancel()
 		return err
@@ -101,7 +101,7 @@ func (w *WisHandler) ListenForFullBlock(response chan<- parseBlock.Block) error 
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err = w.FaCli.ListenForFullBlock(ctx, *w.Ide, w.EventPeer, w.Channeluuids, response)
+	err = w.FaCli.ListenForFullBlock(ctx, *w.Ide, -1, w.EventPeer, w.Channeluuids, response)
 	if err != nil {
 		cancel()
 		return err

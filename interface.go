@@ -225,7 +225,7 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) ListenEventFullBlock(channelName string) (chan parseBlock.Block, error) {
+func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
@@ -234,7 +234,7 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string) (chan parseBlock
 	}
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, eventName, channelName, ch)
+	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -247,7 +247,7 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string) (chan parseBlock
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) ListenEventFilterBlock(channelName string) (chan EventBlockResponse, error) {
+func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
@@ -256,7 +256,7 @@ func (sdk *sdkHandler) ListenEventFilterBlock(channelName string) (chan EventBlo
 	}
 	ch := make(chan EventBlockResponse)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, eventName, channelName, ch)
+	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
 	if err != nil {
 		cancel()
 		return nil, err

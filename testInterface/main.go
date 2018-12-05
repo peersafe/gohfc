@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/op/go-logging"
@@ -51,7 +50,7 @@ func main() {
 		}
 		logger.Debugf("----query--result--%s\n", resVal[0].Response.Response.GetPayload())
 	case "listen":
-		ch, err := gohfc.GetHandler().ListenEventFullBlock("")
+		ch, err := gohfc.GetHandler().ListenEventFullBlock("", 3)
 		if err != nil {
 			logger.Error(err)
 			return
@@ -59,8 +58,7 @@ func main() {
 		for {
 			select {
 			case b := <-ch:
-				bytes, _ := json.Marshal(b)
-				logger.Debugf("---------%s\n", bytes)
+				logger.Debugf("------listen block num---%d\n", b.Header.Number)
 			}
 		}
 	case "checkordconn":
