@@ -75,6 +75,11 @@ func GetConfigLogLevel() string {
 	return handler.client.Log.LogLevel
 }
 
+// GetHandler get sdk handler
+func GetChaincodeName() string {
+	return handler.client.Channel.ChaincodeName
+}
+
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
 	peerNames := getSendPeerName()
