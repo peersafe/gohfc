@@ -179,7 +179,7 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
 	c, err := grpc.Dial(o.Uri, o.Opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", o.Uri, err.Error())
 	}
 	o.con = c
 	o.client = orderer.NewAtomicBroadcastClient(o.con)

@@ -97,7 +97,7 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 
 	conn, err := grpc.Dial(p.Uri, p.Opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", p.Uri, err.Error())
 	}
 	p.conn = conn
 	p.client = peer.NewEndorserClient(p.conn)
