@@ -147,7 +147,7 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 			}
 			caPem, err := ioutil.ReadFile(conf.TlsPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read CA cert file %s\n", conf.TlsPath)
+				return nil, fmt.Errorf("failed to read CA cert faild err:%s\n", err.Error())
 			}
 			certpool := x509.NewCertPool()
 			certpool.AppendCertsFromPEM(caPem)
