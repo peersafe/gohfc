@@ -171,6 +171,9 @@ func (e *EventListener) Listen(response chan<- parseBlock.Block, filterResponse 
 				response <- parseBlock.ParseBlock(msg.GetBlock(), size)
 			case *peer.DeliverResponse_FilteredBlock:
 				filterResponse <- *e.parseFilteredBlock(t, e.FullBlock)
+			default:
+				response <- parseBlock.Block{Error: fmt.Errorf("the listen block request is error %v\n", msg)}
+				return
 			}
 		}
 	}()
