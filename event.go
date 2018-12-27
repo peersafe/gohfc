@@ -79,9 +79,9 @@ func (e *EventListener) newConnection() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, e.Peer.Uri, e.Peer.Opts...)
+	conn, err := grpc.DialContext(ctx, e.Peer.Host, e.Peer.Opts...)
 	if err != nil {
-		return fmt.Errorf("cannot make new connection to: %s err: %v", e.Peer.Uri, err)
+		return fmt.Errorf("cannot make new connection to: %s err: %v", e.Peer.Host, err)
 	}
 	e.connection = conn
 	switch e.ListenerType {
@@ -109,7 +109,7 @@ func (e *EventListener) DisConnect() {
 
 func (e *EventListener) SeekNewest() error {
 	if e.connection == nil || e.client == nil {
-		return fmt.Errorf("cannot seek no connection or client")
+		return fmt.Errorf("cannot seek no connection or FabCli")
 	}
 	seek, err := e.createSeekEnvelope(newest, maxStop)
 	if err != nil {
@@ -120,7 +120,7 @@ func (e *EventListener) SeekNewest() error {
 
 func (e *EventListener) SeekOldest() error {
 	if e.connection == nil || e.client == nil {
-		return fmt.Errorf("cannot seek no connection or client")
+		return fmt.Errorf("cannot seek no connection or FabCli")
 	}
 	seek, err := e.createSeekEnvelope(oldest, maxStop)
 	if err != nil {
@@ -131,7 +131,7 @@ func (e *EventListener) SeekOldest() error {
 
 func (e *EventListener) SeekSingle(num uint64) error {
 	if e.connection == nil || e.client == nil {
-		return fmt.Errorf("cannot seek no connection or client")
+		return fmt.Errorf("cannot seek no connection or FabCli")
 	}
 	pos := &orderer.SeekPosition{Type: &orderer.SeekPosition_Specified{Specified: &orderer.SeekSpecified{Number: num}}}
 	seek, err := e.createSeekEnvelope(pos, pos)
@@ -143,7 +143,7 @@ func (e *EventListener) SeekSingle(num uint64) error {
 
 func (e *EventListener) SeekRange(start, end uint64) error {
 	if e.connection == nil || e.client == nil {
-		return fmt.Errorf("cannot seek no connection or client")
+		return fmt.Errorf("cannot seek no connection or FabCli")
 	}
 	if start > end {
 		return fmt.Errorf("start: %d cannot be bigger than end: %d", start, end)
@@ -403,7 +403,7 @@ func (e *EventPort) connect(ctx context.Context, p *Peer) error {
 	p.Opts = append(p.Opts, grpc.WithBlock(), grpc.WithTimeout(5*time.Second),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
-	conn, err := grpc.Dial(p.Uri, p.Opts...)
+	conn, err := grpc.Dial(p.Host, p.Opts...)
 	if err != nil {
 		return err
 	}

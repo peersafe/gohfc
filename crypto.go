@@ -156,7 +156,7 @@ func (c *ECCryptSuite) GetFamily() string {
 func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 	var suite *ECCryptSuite
 	switch config.Algorithm {
-	case "P256-SHA256":
+	case "P256-SHA256", "":
 		suite = &ECCryptSuite{curve: elliptic.P256(), sigAlgorithm: x509.ECDSAWithSHA256}
 	case "P384-SHA384":
 		suite = &ECCryptSuite{curve: elliptic.P384(), sigAlgorithm: x509.ECDSAWithSHA384}
@@ -167,7 +167,7 @@ func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 	}
 
 	switch config.Hash {
-	case "SHA2-256":
+	case "SHA2-256", "":
 		suite.hashFunction = sha256.New
 	case "SHA2-384":
 		suite.hashFunction = sha512.New384

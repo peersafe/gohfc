@@ -9,33 +9,32 @@ import (
 )
 
 var (
-	logger   = logging.MustGetLogger("testInterface")
+	logger   = logging.MustGetLogger("sdk")
 	funcName = flag.String("function", "", "invoke,query,listen,checkordconn")
 )
 
 func main() {
 	flag.Parse()
-	err := gohfc.InitSDK("./client.yaml")
+	handler, err := gohfc.InitSdkByFile("./zyfclient.yaml")
 	if err != nil {
 		logger.Error(err)
 		return
 	}
-	if gohfc.SetLogLevel(gohfc.GetConfigLogLevel(), "testInterface"); err != nil {
-		logger.Error(err)
-		return
-	}
+
+	//mm := make(chan int)
+	//<-mm
 	logger.Debugf("--testInterface main--")
 
 	switch *funcName {
 	case "invoke":
-		res, err := gohfc.GetHandler().Invoke([]string{"invoke", "a", "b", "1"}, "", "")
+		res, err := handler.Invoke([]string{"invoke", "a", "b", "1"}, "mychannel", "factor")
 		if err != nil {
 			logger.Error(err)
 			return
 		}
 		logger.Debugf("----invoke--TxID--%s\n", res.TxID)
 	case "query":
-		resVal, err := gohfc.GetHandler().Query([]string{"query", "a"}, "", "")
+		resVal, err := handler.Query([]string{"query", "a"}, "mychannel", "factor")
 		if err != nil || len(resVal) == 0 {
 			logger.Error(err)
 			return
@@ -50,7 +49,7 @@ func main() {
 		}
 		logger.Debugf("----query--result--%s\n", resVal[0].Response.Response.GetPayload())
 	case "listen":
-		ch, err := gohfc.GetHandler().ListenEventFullBlock("", 3)
+		ch, err := handler.ListenEventFullBlock("", 0)
 		if err != nil {
 			logger.Error(err)
 			return
@@ -58,12 +57,12 @@ func main() {
 		for {
 			select {
 			case b := <-ch:
-				logger.Debugf("------listen block num---%d\n", b.Header.Number)
+				logger.Debugf("------listen block num---%v\n", b)
 			}
 		}
 	case "checkordconn":
 		for {
-			ok, err := gohfc.GetHandler().GetOrdererConnect()
+			ok, err := handler.GetOrdererConnect()
 			if err != nil {
 				logger.Error(err)
 				return

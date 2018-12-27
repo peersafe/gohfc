@@ -13,135 +13,68 @@ import (
 )
 
 //sdk handler
-type sdkHandler struct {
-	client   *FabricClient
-	identity *Identity
+type SdkHandler struct {
+	FabCli  *FabricClient
+	IdeCli  *Identity
+	Yconfig *YamlConfig
 }
 
 var (
-	logger          = logging.MustGetLogger("sdk")
-	handler         sdkHandler
-	orgPeerMap      = make(map[string][]string)
-	orderNames      []string
-	peerNames       []string
-	eventName       string
-	orRulePeerNames []string
+	logger = logging.MustGetLogger("sdk")
 )
 
-func InitSDK(configPath string) error {
-	// initialize Fabric client
+func InitSdkByFile(configPath string) (*SdkHandler, error) {
+	// initialize Fabric FabCli
 	var err error
-	clientConfig, err := NewClientConfig(configPath)
+	yamlConfig, err := NewYamlConfig(configPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := SetLogLevel(clientConfig.LogLevel, "sdk"); err != nil {
-		return fmt.Errorf("setLogLevel err: %s\n", err.Error())
-	}
-	logger.Debugf("************InitSDK************by: %s", configPath)
-
-	handler.client, err = NewFabricClientFromConfig(*clientConfig)
+	logger.Infof("************InitSdkByFile************by: %s", configPath)
+	fabclient, err := NewFabricClientFromConfig(yamlConfig)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	mspPath := handler.client.Channel.MspConfigPath
-	if mspPath == "" {
-		return fmt.Errorf("config mspPath is empty")
-	}
-	cert, prikey, err := FindCertAndKeyFile(mspPath)
+
+	cert, prikey, err := FindCertAndKeyFile(yamlConfig.MspConfigPath)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	handler.identity, err = LoadCertFromFile(cert, prikey)
+	ideclient, err := LoadCertFromFile(cert, prikey)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	handler.identity.MspId = handler.client.Channel.LocalMspId
+	ideclient.MspId = yamlConfig.LocalMspId
 
-	if err := parsePolicy(); err != nil {
-		return fmt.Errorf("parsePolicy err: %s\n", err.Error())
-	}
-	return err
-}
-
-// GetHandler get sdk handler
-func GetHandler() *sdkHandler {
-	return &handler
-}
-
-// GetHandler get sdk handler
-func GetConfigLogLevel() string {
-	return handler.client.Log.LogLevel
-}
-
-// GetHandler get sdk handler
-func GetChaincodeName() string {
-	return handler.client.Channel.ChaincodeName
+	return &SdkHandler{fabclient, ideclient, yamlConfig}, err
 }
 
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
-	peerNames := getSendPeerName()
-	orderName := getSendOrderName()
-	if len(peerNames) == 0 || orderName == "" {
-		return nil, fmt.Errorf("config peer order is err")
-	}
-	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
+func (sdk *SdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
+	chaincode, err := sdk.getChainCodeObj(args, channelName, chaincodeName)
 	if err != nil {
 		return nil, err
 	}
-	return sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
+	return sdk.FabCli.Invoke(*sdk.IdeCli, *chaincode, sdk.FabCli.getAllPeerNames(), sdk.FabCli.getOneOrdererName())
 }
 
 // Query query cc  ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
-	peerNames := getSendPeerName()
-	if len(peerNames) == 0 {
-		return nil, fmt.Errorf("config peer order is err")
-	}
-	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
+func (sdk *SdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
+	chaincode, err := sdk.getChainCodeObj(args, channelName, chaincodeName)
 	if err != nil {
 		return nil, err
 	}
 
-	return sdk.client.Query(*sdk.identity, *chaincode, []string{peerNames[0]})
-}
-
-// Query query qscc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryResponse, error) {
-	peerNames := getSendPeerName()
-	if len(peerNames) == 0 {
-		return nil, fmt.Errorf("config peer order is err")
-	}
-
-	mspId := handler.client.Channel.LocalMspId
-	if channelName == "" || mspId == "" {
-		return nil, fmt.Errorf("channelName or mspid is empty")
-	}
-
-	chaincode := ChainCode{
-		ChannelId: channelName,
-		Type:      ChaincodeSpec_GOLANG,
-		Name:      QSCC,
-		Args:      args,
-	}
-
-	return sdk.client.Query(*sdk.identity, chaincode, []string{peerNames[0]})
+	return sdk.FabCli.Query(*sdk.IdeCli, *chaincode, []string{sdk.FabCli.getOnePeerName()})
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
+func (sdk *SdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
 	strBlockNum := strconv.FormatUint(blockNum, 10)
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
-	if channelName == "" {
-		return nil, fmt.Errorf("GetBlockHeight channelName is empty ")
-	}
 	args := []string{"GetBlockByNumber", channelName, strBlockNum}
 	logger.Debugf("GetBlockByNumber chainId %s num %s", channelName, strBlockNum)
-	resps, err := sdk.QueryByQscc(args, channelName)
+	resps, err := sdk.Query(args, channelName, QSCC)
 	if err != nil {
 		return nil, fmt.Errorf("can not get installed chaincodes :%s", err.Error())
 	} else if len(resps) == 0 {
@@ -161,15 +94,9 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
-	if channelName == "" {
-		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
-	}
+func (sdk *SdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 	args := []string{"GetChainInfo", channelName}
-	resps, err := sdk.QueryByQscc(args, channelName)
+	resps, err := sdk.Query(args, channelName, QSCC)
 	if err != nil {
 		return 0, err
 	} else if len(resps) == 0 {
@@ -190,18 +117,14 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
+func (sdk *SdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
 	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
+		channelName = sdk.Yconfig.ChannelId
+	}
+	if channelName == "" {
+		return 0, fmt.Errorf("GetBlockHeightByEventName channelName is empty")
 	}
 	args := []string{"GetChainInfo", channelName}
-	mspId := handler.client.Channel.LocalMspId
-	if channelName == "" || mspId == "" {
-		return 0, fmt.Errorf("channelName or mspid is empty")
-	}
-	if eventName == "" {
-		return 0, fmt.Errorf("event peername is empty")
-	}
 	chaincode := ChainCode{
 		ChannelId: channelName,
 		Type:      ChaincodeSpec_GOLANG,
@@ -209,11 +132,11 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 		Args:      args,
 	}
 
-	resps, err := sdk.client.QueryByEvent(*sdk.identity, chaincode, []string{eventName})
+	resps, err := sdk.FabCli.Query(*sdk.IdeCli, chaincode, []string{sdk.FabCli.getOnePeerName()})
 	if err != nil {
 		return 0, err
 	} else if len(resps) == 0 {
-		return 0, fmt.Errorf("GetChainInfo is empty respons from peer qscc")
+		return 0, fmt.Errorf("GetBlockHeightByEventName is empty respons from peer qscc")
 	}
 
 	if resps[0].Error != nil {
@@ -224,22 +147,22 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 	var chainInfo = new(common.BlockchainInfo)
 	err = proto.Unmarshal(data, chainInfo)
 	if err != nil {
-		return 0, fmt.Errorf("GetChainInfo unmarshal from payload failed: %s", err.Error())
+		return 0, fmt.Errorf("GetBlockHeightByEventName unmarshal from payload failed: %s", err.Error())
 	}
 	return chainInfo.Height, nil
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
+func (sdk *SdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
 	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
+		channelName = sdk.Yconfig.ChannelId
 	}
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFullBlock channelName is empty ")
 	}
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
+	err := sdk.FabCli.ListenForFullBlock(ctx, *sdk.IdeCli, startNum, sdk.FabCli.getOnePeerName(), channelName, ch)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -252,16 +175,17 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
+func (sdk *SdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
 	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
+		channelName = sdk.Yconfig.ChannelId
 	}
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
 	}
+
 	ch := make(chan EventBlockResponse)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
+	err := sdk.FabCli.ListenForFilteredBlock(ctx, *sdk.IdeCli, startNum, sdk.FabCli.getOnePeerName(), channelName, ch)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -275,20 +199,20 @@ func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) 
 
 //if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 // Listen v 1.0.4 -- port ==> 7053
-func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Block, error) {
+func (sdk *SdkHandler) Listen(peerName, channelName string) (chan parseBlock.Block, error) {
 	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
+		channelName = sdk.Yconfig.ChannelId
 	}
 	if channelName == "" {
 		return nil, fmt.Errorf("Listen  channelName is empty ")
 	}
-	mspId := sdk.client.Channel.LocalMspId
+	mspId := sdk.Yconfig.LocalMspId
 	if mspId == "" {
 		return nil, fmt.Errorf("Listen  mspId is empty ")
 	}
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.Listen(ctx, sdk.identity, peerName, channelName, mspId, ch)
+	err := sdk.FabCli.Listen(ctx, sdk.IdeCli, peerName, channelName, mspId, ch)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -296,13 +220,13 @@ func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Blo
 	return ch, nil
 }
 
-func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
-	orderName := getSendOrderName()
+func (sdk *SdkHandler) GetOrdererConnect() (bool, error) {
+	orderName := sdk.FabCli.getOneOrdererName()
 	if orderName == "" {
 		return false, fmt.Errorf("config order is err")
 	}
-	if _, ok := sdk.client.Orderers[orderName]; ok {
-		ord := sdk.client.Orderers[orderName]
+	if _, ok := sdk.FabCli.Orderers[orderName]; ok {
+		ord := sdk.FabCli.Orderers[orderName]
 		if ord != nil && ord.con != nil {
 			if ord.con.GetState() == connectivity.Ready {
 				return true, nil
@@ -317,19 +241,43 @@ func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
 	}
 }
 
+func (sdk *SdkHandler) getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
+	if len(channelName) == 0 {
+		channelName = sdk.Yconfig.ChannelId
+	}
+	if len(chaincodeName) == 0 {
+		chaincodeName = sdk.Yconfig.ChaincodeName
+	}
+	if channelName == "" {
+		return nil, fmt.Errorf("channelName is empty")
+	}
+	if chaincodeName == "" {
+		return nil, fmt.Errorf(" chaincodeName is empty")
+	}
+
+	chaincode := ChainCode{
+		ChannelId: channelName,
+		Type:      ChaincodeSpec_GOLANG,
+		Name:      chaincodeName,
+		Args:      args,
+	}
+
+	return &chaincode, nil
+}
+
 //解析区块
-func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
+func (sdk *SdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
 	blockObj := parseBlock.ParseBlock(block, 0)
 	return &blockObj, nil
 }
 
 // param channel only used for create channel, if upate config channel should be nil
-func (sdk *sdkHandler) ConfigUpdate(payload []byte, channel string) error {
-	orderName := getSendOrderName()
+func (sdk *SdkHandler) ConfigUpdate(payload []byte, channel string) error {
+	orderName := sdk.FabCli.getOneOrdererName()
 	if channel != "" {
-		return sdk.client.ConfigUpdate(*sdk.identity, payload, channel, orderName)
+		return sdk.FabCli.ConfigUpdate(*sdk.IdeCli, payload, channel, orderName)
 	}
-	return sdk.client.ConfigUpdate(*sdk.identity, payload, sdk.client.Channel.ChannelId, orderName)
+	return sdk.FabCli.ConfigUpdate(*sdk.IdeCli, payload, sdk.Yconfig.ChannelId, orderName)
 }
 
 type KeyValue struct {

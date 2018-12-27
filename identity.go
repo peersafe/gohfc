@@ -47,7 +47,7 @@ func (i *Identity) ToPem() ([]byte, []byte, error) {
 	}
 }
 
-// MarshalIdentity marshal identity to string
+// MarshalIdentity marshal IdeCli to string
 func MarshalIdentity(i *Identity) (string, error) {
 
 	var pk, cert string
@@ -74,7 +74,7 @@ func MarshalIdentity(i *Identity) (string, error) {
 	return string(str), nil
 }
 
-// UnmarshalIdentity unmarshal identity from string
+// UnmarshalIdentity unmarshal IdeCli from string
 func UnmarshalIdentity(data string) (*Identity, error) {
 	var raw map[string]string
 	if err := json.Unmarshal([]byte(data), &raw); err != nil {
@@ -122,8 +122,8 @@ func UnmarshalIdentity(data string) (*Identity, error) {
 }
 
 // LoadCertFromFile read public key (pk) and private/secret kye (sk) from file system and return new Identity
-func LoadCertFromFile(pk, sk string) (*Identity, error) {
-	cf, err := ioutil.ReadFile(pk)
+func LoadCertFromFile(cert, sk string) (*Identity, error) {
+	cf, err := ioutil.ReadFile(cert)
 	if err != nil {
 		return nil, err
 	}

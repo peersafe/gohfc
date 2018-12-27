@@ -6,43 +6,31 @@ package gohfc
 
 import (
 	"io/ioutil"
-
 	"gopkg.in/yaml.v2"
 )
 
 // ClientConfig holds config data for crypto, peers and orderers
-type ClientConfig struct {
-	CryptoConfig  `yaml:"crypto"`
-	Orderers      map[string]OrdererConfig `yaml:"orderers"`
-	Peers         map[string]PeerConfig    `yaml:"peers"`
-	EventPeers    map[string]PeerConfig    `yaml:"eventPeers"`
-	ChannelConfig `yaml:"channel"`
-	Mq            `yaml:"mq"`
-	Log           `yaml:"log"`
+type YamlConfig struct {
+	CryptoConfig `yaml:"crypto"`
+	Orderers     []NodeConfig `yaml:"orderers"`
+	Peers        []NodeConfig `yaml:"peers"`
+	MspConfig    `yaml:"msp"`
+	Mq           `yaml:"mq"`
+	Log          map[string]string `yaml:"log"`
 }
 
-type ChannelConfig struct {
-	MspConfigPath    string `yaml:"mspConfigPath"`
-	LocalMspId       string `yaml:"localMspId"`
-	ChannelId        string `yaml:"channelId"`
-	ChaincodeName    string `yaml:"chaincodeName"`
-	ChaincodeVersion string `yaml:"chaincodeVersion"`
-	ChaincodePolicy  `yaml:"chaincodePolicy"`
-}
-
-type ChaincodePolicy struct {
-	Orgs []string `yaml:"orgs"`
-	Rule string   `yaml:"rule"`
+type MspConfig struct {
+	LocalMspId    string `yaml:"localMspId"`
+	MspConfigPath string `yaml:"mspConfigPath"`
+	ChannelId     string `yaml:"channelId"`
+	ChaincodeName string `yaml:"chaincodeName"`
+	TlsClientCert string `yaml:"tlsClientCert"`
+	TlsClientKey  string `yaml:"tlsClientKey"`
 }
 
 type Mq struct {
 	MqAddress []string `yaml:"mqAddress"`
 	QueueName string   `yaml:"queueName"`
-}
-
-type Log struct {
-	LogLevel     string `yaml:"logLevel"`
-	LogModelName string `yaml:"logModelName"`
 }
 
 // CAConfig holds config for Fabric CA
@@ -60,38 +48,24 @@ type CryptoConfig struct {
 	Hash      string `yaml:"hash"`
 }
 
-// PeerConfig hold config values for Peer. ULR is in address:port notation
-type PeerConfig struct {
-	Host       string `yaml:"host"`
-	OrgName    string `yaml:"orgName"`
-	UseTLS     bool   `yaml:"useTLS"`
-	TlsPath    string `yaml:"tlsPath"`
-	DomainName string `yaml:"domainName"`
-	TlsMutual  bool   `yaml:"tlsMutual"`
-	ClientCert string `yaml:"clientCert"`
-	ClientKey  string `yaml:"clientKey"`
-}
-
-// OrdererConfig hold config values for Orderer. ULR is in address:port notation
-type OrdererConfig struct {
-	Host       string `yaml:"host"`
-	UseTLS     bool   `yaml:"useTLS"`
-	TlsPath    string `yaml:"tlsPath"`
-	DomainName string `yaml:"domainName"`
-	TlsMutual  bool   `yaml:"tlsMutual"`
-	ClientCert string `yaml:"clientCert"`
-	ClientKey  string `yaml:"clientKey"`
+type NodeConfig struct {
+	Host          string `yaml:"host"`
+	DomainName    string `yaml:"domainName"`
+	UseTls        bool   `yaml:"useTls"`
+	TlsCaPath     string `yaml:"tlsCaPath"`
+	TlsMutual     bool   `yaml:"tlsMutual"`
+	TlsClientCert string `yaml:"tlsClientCert"`
+	TlsClientKey  string `yaml:"tlsClientKey"`
 }
 
 // NewFabricClientConfig create config from provided yaml file in path
-func NewClientConfig(path string) (*ClientConfig, error) {
+func NewYamlConfig(path string) (*YamlConfig, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	config := new(ClientConfig)
-	err = yaml.Unmarshal([]byte(data), config)
-	if err != nil {
+	config := new(YamlConfig)
+	if err := yaml.Unmarshal([]byte(data), config); err != nil {
 		return nil, err
 	}
 	return config, nil

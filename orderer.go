@@ -6,25 +6,18 @@ package gohfc
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/orderer"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/keepalive"
-	"io/ioutil"
 	"time"
 )
 
 // Orderer expose API's to communicate with orderers.
 type Orderer struct {
-	Name   string
-	Uri    string
+	Host   string
 	Opts   []grpc.DialOption
-	caPath string
 	con    *grpc.ClientConn
 	client orderer.AtomicBroadcastClient
 }
@@ -53,9 +46,9 @@ func (o *Orderer) Broadcast(envelope *common.Envelope) (*orderer.BroadcastRespon
 // Deliver delivers envelope to orderer. Please note that new connection will be created on every call of Deliver.
 func (o *Orderer) Deliver(envelope *common.Envelope) (*common.Block, error) {
 
-	connection, err := grpc.Dial(o.Uri, o.Opts...)
+	connection, err := grpc.Dial(o.Host, o.Opts...)
 	if err != nil {
-		return nil, fmt.Errorf("cannot connect to orderer: %s err is: %v", o.Name, err)
+		return nil, fmt.Errorf("cannot connect to orderer: %s err is: %v", o.Host, err)
 	}
 	defer connection.Close()
 
@@ -135,51 +128,16 @@ func (o *Orderer) getGenesisBlock(identity Identity, crypto CryptoSuite, channel
 }
 
 // NewOrdererFromConfig create new Orderer from config
-func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
-	o := Orderer{Uri: conf.Host, caPath: conf.TlsPath}
-	if !conf.UseTLS {
-		o.Opts = []grpc.DialOption{grpc.WithInsecure()}
-	} else if o.caPath != "" {
-		if conf.TlsMutual {
-			cert, err := tls.LoadX509KeyPair(conf.ClientCert, conf.ClientKey)
-			if err != nil {
-				return nil, fmt.Errorf("failed to Load client keypair: %s\n", err.Error())
-			}
-			caPem, err := ioutil.ReadFile(conf.TlsPath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read CA cert faild err:%s\n", err.Error())
-			}
-			certpool := x509.NewCertPool()
-			certpool.AppendCertsFromPEM(caPem)
-			c := &tls.Config{
-				ServerName:   conf.DomainName,
-				MinVersion:   tls.VersionTLS12,
-				Certificates: []tls.Certificate{cert},
-				RootCAs:      certpool,
-				//InsecureSkipVerify: true, // Client verifies server's cert if false, else skip.
-			}
-			o.Opts = append(o.Opts, grpc.WithTransportCredentials(credentials.NewTLS(c)))
-		} else {
-			creds, err := credentials.NewClientTLSFromFile(o.caPath, conf.DomainName)
-			if err != nil {
-				return nil, fmt.Errorf("cannot read orderer %s credentials err is: %v", o.Name, err)
-			}
-			o.Opts = append(o.Opts, grpc.WithTransportCredentials(creds))
-		}
-	}
-	o.Opts = append(o.Opts,
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                time.Duration(1) * time.Minute,
-			Timeout:             time.Duration(20) * time.Second,
-			PermitWithoutStream: true,
-		}),
-		grpc.WithBlock(),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
-	c, err := grpc.Dial(o.Uri, o.Opts...)
+func NewOrdererFromConfig(conf NodeConfig) (*Orderer, error) {
+	o := Orderer{Host: conf.Host}
+	var err error
+	o.Opts, _, err = GetOptsByConfig(conf, nil)
 	if err != nil {
-		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", o.Uri, err.Error())
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", o.Host, err.Error())
+	}
+	c, err := grpc.Dial(o.Host, o.Opts...)
+	if err != nil {
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", o.Host, err.Error())
 	}
 	o.con = c
 	o.client = orderer.NewAtomicBroadcastClient(o.con)

@@ -19,15 +19,11 @@ import (
 
 // FabricClient expose API's to work with Hyperledger Fabric
 type FabricClient struct {
-	Crypto     CryptoSuite
-	Peers      map[string]*Peer
-	Orderers   map[string]*Orderer
-	EventPeers map[string]*Peer
-	Channel    ChannelConfig
-	Mq         Mq
-	Log        Log
-	Event      *EventListener
-	EventPort  *EventPort
+	Crypto    CryptoSuite
+	Peers     map[string]*Peer
+	Orderers  map[string]*Orderer
+	Event     *EventListener
+	EventPort *EventPort
 }
 
 // CreateUpdateChannel read channel config generated (usually) from configtxgen and send it to orderer
@@ -264,7 +260,7 @@ func (c *FabricClient) QueryInstalledChainCodes(identity Identity, peers []strin
 
 	response := make([]*ChainCodesResponse, len(r))
 	for idx, p := range r {
-		ic := ChainCodesResponse{PeerName: p.Name, Error: p.Err}
+		ic := ChainCodesResponse{PeerName: p.Host, Error: p.Err}
 		if p.Err != nil {
 			ic.Error = p.Err
 		} else {
@@ -302,7 +298,7 @@ func (c *FabricClient) QueryInstantiatedChainCodes(identity Identity, channelId 
 	r := sendToPeers(execPeers, proposal)
 	response := make([]*ChainCodesResponse, len(r))
 	for idx, p := range r {
-		ic := ChainCodesResponse{PeerName: p.Name, Error: p.Err}
+		ic := ChainCodesResponse{PeerName: p.Host, Error: p.Err}
 		if p.Err != nil {
 			ic.Error = p.Err
 		} else {
@@ -341,7 +337,7 @@ func (c *FabricClient) QueryChannels(identity Identity, peers []string) ([]*Quer
 	r := sendToPeers(execPeers, proposal)
 	response := make([]*QueryChannelsResponse, 0, len(r))
 	for _, pr := range r {
-		peerResponse := QueryChannelsResponse{PeerName: pr.Name}
+		peerResponse := QueryChannelsResponse{PeerName: pr.Host}
 		if pr.Err != nil {
 			peerResponse.Error = err
 		} else {
@@ -386,7 +382,7 @@ func (c *FabricClient) QueryChannelInfo(identity Identity, channelId string, pee
 
 	response := make([]*QueryChannelInfoResponse, 0, len(r))
 	for _, pr := range r {
-		peerResponse := QueryChannelInfoResponse{PeerName: pr.Name}
+		peerResponse := QueryChannelInfoResponse{PeerName: pr.Host}
 		if pr.Err != nil {
 			peerResponse.Error = err
 		} else {
@@ -424,34 +420,7 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode, peers []str
 	r := sendToPeers(execPeers, proposal)
 	response := make([]*QueryResponse, len(r))
 	for idx, p := range r {
-		ic := QueryResponse{PeerName: p.Name, Error: p.Err}
-		if p.Err != nil {
-			ic.Error = p.Err
-		} else {
-			ic.Response = p.Response
-		}
-		response[idx] = &ic
-	}
-	return response, nil
-}
-
-func (c *FabricClient) QueryByEvent(identity Identity, chainCode ChainCode, peers []string) ([]*QueryResponse, error) {
-	execPeers := c.getEventPeers(peers)
-	if len(peers) != len(execPeers) {
-		return nil, ErrPeerNameNotFound
-	}
-	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
-	if err != nil {
-		return nil, err
-	}
-	proposal, err := signedProposal(prop.proposal, identity, c.Crypto)
-	if err != nil {
-		return nil, err
-	}
-	r := sendToPeers(execPeers, proposal)
-	response := make([]*QueryResponse, len(r))
-	for idx, p := range r {
-		ic := QueryResponse{PeerName: p.Name, Error: p.Err}
+		ic := QueryResponse{PeerName: p.Host, Error: p.Err}
 		if p.Err != nil {
 			ic.Error = p.Err
 		} else {
@@ -472,7 +441,7 @@ func (c *FabricClient) QueryByEvent(identity Identity, chainCode ChainCode, peer
 func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []string, orderer string) (*InvokeResponse, error) {
 	ord, ok := c.Orderers[orderer]
 	if !ok {
-		return nil, ErrInvalidOrdererName
+		return nil, fmt.Errorf("ordername: %s err:%s", orderer, ErrInvalidOrdererName)
 	}
 	execPeers := c.getPeers(peers)
 	if len(peers) != len(execPeers) {
@@ -526,7 +495,7 @@ func (c *FabricClient) QueryTransaction(identity Identity, channelId string, txI
 	fmt.Println(r)
 	response := make([]*QueryTransactionResponse, len(r))
 	for idx, p := range r {
-		qtr := QueryTransactionResponse{PeerName: p.Name, Error: p.Err}
+		qtr := QueryTransactionResponse{PeerName: p.Host, Error: p.Err}
 		if p.Err != nil {
 			qtr.Error = p.Err
 		} else {
@@ -552,7 +521,7 @@ func (c *FabricClient) QueryTransaction(identity Identity, channelId string, txI
 // User can listen for same events in same channel in multiple peers for redundancy using same `chan<- EventBlockResponse`
 // In this case every peer will send its events, so identical events may appear more than once in channel.
 func (c *FabricClient) ListenForFullBlock(ctx context.Context, identity Identity, startNum int, eventPeer, channelId string, response chan<- parseBlock.Block) error {
-	ep, ok := c.EventPeers[eventPeer]
+	ep, ok := c.Peers[eventPeer]
 	if !ok {
 		return ErrPeerNameNotFound
 	}
@@ -578,7 +547,7 @@ func (c *FabricClient) ListenForFullBlock(ctx context.Context, identity Identity
 // will be returned but NOT events data. Also full block data will not be available.
 // Other options are same as `ListenForFullBlock`.
 func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Identity, startNum int, eventPeer, channelId string, response chan<- EventBlockResponse) error {
-	ep, ok := c.EventPeers[eventPeer]
+	ep, ok := c.Peers[eventPeer]
 	if !ok {
 		return ErrPeerNameNotFound
 	}
@@ -602,7 +571,7 @@ func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Iden
 
 // Listen v 1.0.4 -- port ==> 7053
 func (c *FabricClient) Listen(ctx context.Context, identity *Identity, eventPeer, channelId, mspId string, response chan<- parseBlock.Block) error {
-	ep, ok := c.EventPeers[eventPeer]
+	ep, ok := c.Peers[eventPeer]
 	if !ok {
 		return ErrPeerNameNotFound
 	}
@@ -621,16 +590,14 @@ func (c *FabricClient) Listen(ctx context.Context, identity *Identity, eventPeer
 }
 
 // NewFabricClientFromConfig create a new FabricClient from ClientConfig
-func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
+func NewFabricClientFromConfig(config *YamlConfig) (*FabricClient, error) {
+	if err := SetLogLevel(config.Log); err != nil {
+		return nil, fmt.Errorf("setLogLevel err: %s\n", err.Error())
+	}
 	var crypto CryptoSuite
 	var err error
 	switch config.CryptoConfig.Family {
-	case "ecdsa":
-		crypto, err = NewECCryptSuiteFromConfig(config.CryptoConfig)
-		if err != nil {
-			return nil, err
-		}
-	case "gm":
+	case "ecdsa", "gm":
 		crypto, err = NewECCryptSuiteFromConfig(config.CryptoConfig)
 		if err != nil {
 			return nil, err
@@ -640,49 +607,49 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 	}
 
 	peers := make(map[string]*Peer)
-	for name, p := range config.Peers {
+	for _, p := range config.Peers {
+		logger.Debugf("waiting  connect : %s %s", p.Host, p.DomainName)
+		if p.TlsClientKey == "" {
+			p.TlsClientKey = config.TlsClientKey
+		}
+		if p.TlsClientCert == "" {
+			p.TlsClientCert = config.TlsClientCert
+		}
 		newPeer, err := NewPeerFromConfig(p, crypto)
 		if err != nil {
 			return nil, err
 		}
-		newPeer.Name = name
-		newPeer.OrgName = p.OrgName
-		peers[name] = newPeer
-		logger.Debugf("Create the endorserpeer connection is successful : %s", name)
-	}
-
-	eventPeers := make(map[string]*Peer)
-	for name, p := range config.EventPeers {
-		newEventPeer, err := NewPeerFromConfig(p, crypto)
-		if err != nil {
-			return nil, err
-		}
-		newEventPeer.Name = name
-		eventPeers[name] = newEventPeer
-		logger.Debugf("Create the eventpeer connection is successful : %s", name)
+		peers[p.Host] = newPeer
+		logger.Debugf("Create the peer connection is successful : %s %s", p.Host, p.DomainName)
 	}
 
 	orderers := make(map[string]*Orderer)
-	for name, o := range config.Orderers {
+	for _, o := range config.Orderers {
+		logger.Debugf("waiting  connect : %s %s", o.Host, o.DomainName)
+		if o.TlsClientKey == "" {
+			o.TlsClientKey = config.TlsClientKey
+		}
+		if o.TlsClientCert == "" {
+			o.TlsClientCert = config.TlsClientCert
+		}
 		newOrderer, err := NewOrdererFromConfig(o)
 		if err != nil {
 			return nil, err
 		}
-		newOrderer.Name = name
-		orderers[name] = newOrderer
-		logger.Debugf("Create the orderer connection is successful : %s", name)
+		orderers[o.Host] = newOrderer
+		logger.Debugf("Create the orderer connection is successful : %s %s", o.Host, o.DomainName)
 	}
-	client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
+	client := FabricClient{Peers: peers, Orderers: orderers, Crypto: crypto}
 	return &client, nil
 }
 
-// NewFabricClient creates new client from provided config file.
+// NewFabricClient creates new FabCli from provided config file.
 func NewFabricClient(path string) (*FabricClient, error) {
-	config, err := NewClientConfig(path)
+	config, err := NewYamlConfig(path)
 	if err != nil {
 		return nil, err
 	}
-	return NewFabricClientFromConfig(*config)
+	return NewFabricClientFromConfig(config)
 }
 
 func (c FabricClient) getPeers(names []string) []*Peer {
@@ -695,12 +662,30 @@ func (c FabricClient) getPeers(names []string) []*Peer {
 	return res
 }
 
-func (c FabricClient) getEventPeers(names []string) []*Peer {
-	res := make([]*Peer, 0, len(names))
-	for _, p := range names {
-		if fp, ok := c.EventPeers[p]; ok {
-			res = append(res, fp)
+func (c FabricClient) getAllPeerNames() []string {
+	var nameList []string
+	for host, p := range c.Peers {
+		if p != nil {
+			nameList = append(nameList, host)
 		}
 	}
-	return res
+	return nameList
+}
+
+func (c FabricClient) getOnePeerName() string {
+	for host, p := range c.Peers {
+		if p != nil {
+			return host
+		}
+	}
+	return ""
+}
+
+func (c FabricClient) getOneOrdererName() string {
+	for host, o := range c.Orderers {
+		if o != nil {
+			return host
+		}
+	}
+	return ""
 }

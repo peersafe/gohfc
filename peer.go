@@ -19,12 +19,9 @@ import (
 
 // Peer expose API's to communicate with peer
 type Peer struct {
-	Name        string
-	OrgName     string
-	Uri         string
+	Host        string
 	MspId       string
 	Opts        []grpc.DialOption
-	caPath      string
 	tlsCertHash []byte
 	conn        *grpc.ClientConn
 	client      peer.EndorserClient
@@ -34,36 +31,55 @@ type Peer struct {
 type PeerResponse struct {
 	Response *peer.ProposalResponse
 	Err      error
-	Name     string
+	Host     string
 }
 
 // Endorse sends single transaction to single peer.
 func (p *Peer) Endorse(resp chan *PeerResponse, prop *peer.SignedProposal) {
 	proposalResp, err := p.client.ProcessProposal(context.Background(), prop)
 	if err != nil {
-		resp <- &PeerResponse{Response: nil, Name: p.Name, Err: err}
+		resp <- &PeerResponse{Response: nil, Host: p.Host, Err: err}
 		return
 	}
-	resp <- &PeerResponse{Response: proposalResp, Name: p.Name, Err: nil}
+	resp <- &PeerResponse{Response: proposalResp, Host: p.Host, Err: nil}
 }
 
 // NewPeerFromConfig creates new peer from provided config
-func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) {
-	p := Peer{Uri: conf.Host, caPath: conf.TlsPath}
-	if !conf.UseTLS {
-		p.Opts = []grpc.DialOption{grpc.WithInsecure()}
-	} else if p.caPath != "" {
+func NewPeerFromConfig(conf NodeConfig, cryptoSuite CryptoSuite) (*Peer, error) {
+	p := Peer{Host: conf.Host}
+	var err error
+	p.Opts, p.tlsCertHash, err = GetOptsByConfig(conf, cryptoSuite)
+	if err != nil {
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", p.Host, err.Error())
+	}
+
+	conn, err := grpc.Dial(conf.Host, p.Opts...)
+	if err != nil {
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", p.Host, err.Error())
+	}
+	p.conn = conn
+	p.client = peer.NewEndorserClient(p.conn)
+
+	return &p, nil
+}
+
+func GetOptsByConfig(conf NodeConfig, cryptoSuite CryptoSuite) ([]grpc.DialOption, []byte, error) {
+	var Opts []grpc.DialOption
+	var tlsCertHash []byte
+	if !conf.UseTls {
+		Opts = []grpc.DialOption{grpc.WithInsecure()}
+	} else if conf.TlsCaPath != "" {
 		if conf.TlsMutual {
-			cert, err := tls.LoadX509KeyPair(conf.ClientCert, conf.ClientKey)
+			cert, err := tls.LoadX509KeyPair(conf.TlsClientCert, conf.TlsClientKey)
 			if err != nil {
-				return nil, fmt.Errorf("failed to Load client keypair: %s\n", err.Error())
+				return nil, nil, fmt.Errorf("failed to Load FabCli keypair: %s\n", err.Error())
 			}
 			if cryptoSuite != nil {
-				p.tlsCertHash = cryptoSuite.Hash(cert.Certificate[0])
+				tlsCertHash = cryptoSuite.Hash(cert.Certificate[0])
 			}
-			caPem, err := ioutil.ReadFile(conf.TlsPath)
+			caPem, err := ioutil.ReadFile(conf.TlsCaPath)
 			if err != nil {
-				return nil, fmt.Errorf("failed to read CA cert faild err:%s\n", err.Error())
+				return nil, nil, fmt.Errorf("failed to read CA cert faild err:%s\n", err.Error())
 			}
 			certpool := x509.NewCertPool()
 			certpool.AppendCertsFromPEM(caPem)
@@ -74,17 +90,17 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 				RootCAs:      certpool,
 				//InsecureSkipVerify: true, // Client verifies server's cert if false, else skip.
 			}
-			p.Opts = append(p.Opts, grpc.WithTransportCredentials(credentials.NewTLS(c)))
+			Opts = append(Opts, grpc.WithTransportCredentials(credentials.NewTLS(c)))
 		} else {
-			creds, err := credentials.NewClientTLSFromFile(p.caPath, conf.DomainName)
+			creds, err := credentials.NewClientTLSFromFile(conf.TlsCaPath, conf.DomainName)
 			if err != nil {
-				return nil, fmt.Errorf("cannot read peer %s credentials err is: %v", p.Name, err)
+				return nil, nil, fmt.Errorf("cannot read peer %s credentials err is: %v", conf.Host, err)
 			}
-			p.Opts = append(p.Opts, grpc.WithTransportCredentials(creds))
+			Opts = append(Opts, grpc.WithTransportCredentials(creds))
 		}
 	}
 
-	p.Opts = append(p.Opts,
+	Opts = append(Opts,
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                time.Duration(1) * time.Minute,
 			Timeout:             time.Duration(20) * time.Second,
@@ -95,12 +111,5 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
 
-	conn, err := grpc.Dial(p.Uri, p.Opts...)
-	if err != nil {
-		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", p.Uri, err.Error())
-	}
-	p.conn = conn
-	p.client = peer.NewEndorserClient(p.conn)
-
-	return &p, nil
+	return Opts, tlsCertHash, nil
 }

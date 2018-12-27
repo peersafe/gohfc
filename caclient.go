@@ -21,19 +21,19 @@ import (
 
 // RegistrationRequest holds all data needed for new registration of new user in Certificate Authority
 type CARegistrationRequest struct {
-	// EnrolmentId is unique name that identifies identity
+	// EnrolmentId is unique name that identifies IdeCli
 	EnrolmentId string `json:"id"`
-	// Type defines type of this identity (user,client, auditor etc...)
+	// Type defines type of this IdeCli (user,FabCli, auditor etc...)
 	Type string `json:"type"`
 	// Secret is password that will be used for enrollment. If not provided random password will be generated
 	Secret string `json:"secret,omitempty"`
-	// MaxEnrollments define maximum number of times that identity can enroll. If not provided or is 0 there is no limit
+	// MaxEnrollments define maximum number of times that IdeCli can enroll. If not provided or is 0 there is no limit
 	MaxEnrollments int `json:"max_enrollments,omitempty"`
-	// Affiliation associates identity with particular organisation.
-	// for example org1.department1 makes this identity part of organisation `org1` and department `department1`
+	// Affiliation associates IdeCli with particular organisation.
+	// for example org1.department1 makes this IdeCli part of organisation `org1` and department `department1`
 	// Hierarchical structure can be created using .(dot). For example org1.dep1 will create dep1 as part of org1
 	Affiliation string `json:"affiliation"`
-	// Attrs are attributes associated with this identity
+	// Attrs are attributes associated with this IdeCli
 	Attrs []CaRegisterAttribute `json:"attrs"`
 	// CAName is the name of the CA that should be used. FabricCa support more than one CA server on same endpoint and
 	// this names are used to distinguish between them. If empty default CA instance will be used.
@@ -57,7 +57,7 @@ type CaRegisterAttribute struct {
 type CaEnrollmentRequest struct {
 	// EnrollmentId is the unique entity identifies
 	EnrollmentId string
-	// Secret is the password for this identity
+	// Secret is the password for this IdeCli
 	Secret string
 	// Profile define which CA profile to be used for signing. When this profile is empty default profile is used.
 	// This is the common situation when issuing and ECert.
@@ -111,7 +111,7 @@ type CaEnrollAttribute struct {
 // If EnrolmentID is provided all certificated for this EnrollmentID will be revoked and all his/hers future attempts
 // to enroll will fail.
 type CARevocationRequest struct {
-	// EnrollmentId of the identity whose certificates should be revoked
+	// EnrollmentId of the IdeCli whose certificates should be revoked
 	// If this field is omitted, then Serial and AKI must be specified.
 	EnrollmentId string `json:"id,omitempty"`
 	// Serial number of the certificate to be revoked
@@ -156,7 +156,7 @@ type CAAddAffiliationRequest struct {
 type CARemoveAffiliationRequest struct {
 	// Name is the name of the affiliation to be removed. Dot can be used to specify child like `org1.department1`.
 	Name string
-	// Force will force removal of child affiliations and any identity associated with them
+	// Force will force removal of child affiliations and any IdeCli associated with them
 	Force bool
 	// CAName is the name of the CA that should be used. FabricCa support more than one CA server on same endpoint and
 	// this names are used to distinguish between them. If empty default CA instance will be used.
@@ -221,7 +221,7 @@ type CAGetIdentityResponse struct {
 	CAName string `json:"caname"`
 }
 
-// CaIdentityResponse represent identity
+// CaIdentityResponse represent IdeCli
 type CaIdentityResponse struct {
 	ID             string                `json:"id"`
 	Type           string                `json:"type"`
@@ -230,18 +230,18 @@ type CaIdentityResponse struct {
 	MaxEnrollments int                   `json:"max_enrollments" mapstructure:"max_enrollments"`
 }
 
-// CARemoveIdentityRequest contains needed data for removing existing identity
+// CARemoveIdentityRequest contains needed data for removing existing IdeCli
 type CARemoveIdentityRequest struct {
-	// Name is the id of the identity to be removed.
+	// Name is the id of the IdeCli to be removed.
 	Name string
-	// Force will force removal of your own identity
+	// Force will force removal of your own IdeCli
 	Force bool
 	// CAName is the name of the CA that should be used. FabricCa support more than one CA server on same endpoint and
 	// this names are used to distinguish between them. If empty default CA instance will be used.
 	CAName string
 }
 
-// CAModifyIdentityRequest holds data that will be used to update existing identity
+// CAModifyIdentityRequest holds data that will be used to update existing IdeCli
 type CAModifyIdentityRequest struct {
 	ID             string                `json:"-"`
 	Type           string                `json:"type"`
@@ -252,9 +252,9 @@ type CAModifyIdentityRequest struct {
 	CAName         string                `json:"caname,omitempty"`
 }
 
-// FabricCAClient is client implementation for fabric-ca server
+// FabricCAClient is FabCli implementation for fabric-ca server
 type FabricCAClient struct {
-	// Uri is access point for fabric-ca server. Port number and scheme must be provided.
+	// Host is access point for fabric-ca server. Port number and scheme must be provided.
 	// for example http://127.0.0.1:7054
 	Url string
 	// SkipTLSVerification define how connection must handle invalid TLC certificates.
@@ -587,8 +587,8 @@ func (f *FabricCAClient) Revoke(identity *Identity, request *CARevocationRequest
 }
 
 // ReEnroll create new certificate from old one. Useful when certificate is about to expire.
-// Difference with `Enroll` is that `Enroll` require identity with `Registar` role.
-// In re-enrolment the old certificate is used to identify the identity.
+// Difference with `Enroll` is that `Enroll` require IdeCli with `Registar` role.
+// In re-enrolment the old certificate is used to identify the IdeCli.
 func (f *FabricCAClient) ReEnroll(request CaReEnrollmentRequest) (*Identity, []byte, error) {
 
 	if request.Identity == nil || request.Identity.EnrollmentId() == "" {
@@ -1032,7 +1032,7 @@ func (f *FabricCAClient) ListAllIdentities(identity *Identity, caName string) (*
 	return nil, fmt.Errorf("non 200 response: %v message is: %s", resp.StatusCode, string(body))
 }
 
-// GetIdentity get single identity defined by `id` from FabricCa server
+// GetIdentity get single IdeCli defined by `id` from FabricCa server
 func (f *FabricCAClient) GetIdentity(identity *Identity, id string, caName string) (*CAGetIdentityResponse, error) {
 
 	if identity == nil {
@@ -1083,7 +1083,7 @@ func (f *FabricCAClient) GetIdentity(identity *Identity, id string, caName strin
 	return nil, fmt.Errorf("non 200 response: %v message is: %s", resp.StatusCode, string(body))
 }
 
-// RemoveIdentity remove identity fromFabricCA. FabricCA must be configured to allow this operation
+// RemoveIdentity remove IdeCli fromFabricCA. FabricCA must be configured to allow this operation
 func (f *FabricCAClient) RemoveIdentity(identity *Identity, req CARemoveIdentityRequest) (*CAGetIdentityResponse, error) {
 
 	if identity == nil {
@@ -1141,7 +1141,7 @@ func (f *FabricCAClient) RemoveIdentity(identity *Identity, req CARemoveIdentity
 
 }
 
-// ModifyIdentity will update existing identity
+// ModifyIdentity will update existing IdeCli
 func (f *FabricCAClient) ModifyIdentity(identity *Identity, req CAModifyIdentityRequest) (*CAGetIdentityResponse, error) {
 
 	if identity == nil {
