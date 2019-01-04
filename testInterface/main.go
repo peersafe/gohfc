@@ -3,8 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/hyperledger/fabric/protos/utils"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc"
+	"io/ioutil"
 	"time"
 )
 
@@ -33,6 +35,37 @@ func main() {
 			return
 		}
 		logger.Debugf("----invoke--TxID--%s\n", res.TxID)
+	case "parseBlock":
+		byte, err := ioutil.ReadFile("./mychannelConfig.block")
+		if err != nil {
+			panic(err)
+		}
+		curBlock := utils.UnmarshalBlockOrPanic(byte)
+		decodeBlock,err := handler.ParseCommonBlock(curBlock)
+		if err != nil {
+			panic(err)
+		}
+		//str, _ := json.Marshal(decodeBlock)
+		logger.Debugf("----Decode Block----%v\n", decodeBlock.BlockType)
+	case "queryBlock":
+		resVal, err := handler.Query([]string{"GetConfigBlock", "mychannel"}, "mychannel", "cscc")
+		if err != nil || len(resVal) == 0 {
+			logger.Error(err)
+			return
+		}
+		if resVal[0].Error != nil {
+			logger.Error(resVal[0].Error)
+			return
+		}
+		if resVal[0].Response.Response.GetStatus() != 200 {
+			logger.Error(fmt.Errorf(resVal[0].Response.Response.GetMessage()))
+			return
+		}
+		if err := ioutil.WriteFile("./mychannelConfig.block", resVal[0].Response.Response.GetPayload(), 0655); err != nil {
+			logger.Error(err)
+			return
+		}
+		logger.Debugf("----queryBlock--result--in mychannelConfig.block\n")
 	case "query":
 		resVal, err := handler.Query([]string{"query", "a"}, "mychannel", "factor")
 		if err != nil || len(resVal) == 0 {

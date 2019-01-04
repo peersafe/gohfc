@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"bytes"
+	"encoding/json"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/common/tools/protolator"
 	ledgerUtil "github.com/hyperledger/fabric/core/ledger/util"
 	cb "github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/ledger/rwset"
@@ -17,6 +20,7 @@ import (
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
 	"github.com/op/go-logging"
+	"io/ioutil"
 )
 
 var parseBlockLogger = logging.MustGetLogger("sdk")
@@ -231,6 +235,7 @@ func processBlock(block *cb.Block, size uint64) Block {
 		//localTransaction.SignatureHeader.Nonce = localSignatureHeader.Nonce
 		//localTransaction.SignatureHeader.Certificate, _ = deserializeIdentity(localSignatureHeader.Creator)
 
+		localBlock.BlockType = cb.HeaderType(chHeader.Type)
 		if cb.HeaderType(chHeader.Type) == cb.HeaderType_ENDORSER_TRANSACTION {
 			transaction := &peer.Transaction{}
 			if err := proto.Unmarshal(payload.Data, transaction); err != nil {
@@ -309,13 +314,31 @@ func processBlock(block *cb.Block, size uint64) Block {
 			configEnv := &cb.ConfigEnvelope{}
 			_, err = utils.UnmarshalEnvelopeOfType(envelope, cb.HeaderType_CONFIG, configEnv)
 			if err != nil {
-				parseBlockLogger.Errorf("Bad configuration envelope: %s", err)
+				parseBlockLogger.Errorf("Bad ConfigEnvelope: %s", err)
+				continue
+			}
+			buf := &bytes.Buffer{}
+			if err := protolator.DeepMarshalJSON(buf, configEnv.Config); err != nil {
+				parseBlockLogger.Errorf("Bad DeepMarshalJSON Buffer : %s", err)
 				continue
 			}
 
+			parseBlockLogger.Debugf("--------------------json------------------")
+			jsonByte, err := ioutil.ReadFile("./config.json")
+			if err != nil {
+				parseBlockLogger.Errorf("Bad ReadFile : %s", err)
+				continue
+			}
+
+			config := &Config{}
+			if err := json.Unmarshal(jsonByte, config); err != nil {
+				parseBlockLogger.Errorf("Bad Unmarshal Config: %s", err)
+				continue
+			}
+			a, _ := json.Marshal(config)
+			parseBlockLogger.Debugf("----zyf--jsonconfig--%s\n", a)
 			parseBlockLogger.Debugf("it's config block number : %d", block.Header.Number)
 		}
-
 	}
 
 	return localBlock

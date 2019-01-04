@@ -1,0 +1,38 @@
+crypto:
+   family: ecdsa
+orderers:
+   - host: 127.0.0.1:7050
+     domainName: orderer.example.com
+     useTls: true
+     tlsCaPath: /opt/gopath/src/github.com/peersafe/worktool/fabric/worktool/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+     tlsMutual: false
+     tlsClientCert:
+     tlsClientKey:
+peers:
+  - host: 127.0.0.1:7051
+    domainName: peer0.org1.example.com
+    useTls: true
+    tlsCaPath: /opt/gopath/src/github.com/peersafe/worktool/fabric/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsMutual: false
+    tlsClientCert:
+    tlsClientKey:
+msp:
+    localMspId:  Org1MSP
+    channelId: mychannel
+    mspConfigPath: /opt/gopath/src/github.com/peersafe/worktool/fabric/worktool/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+    tlsClientCert: /opt/gopath/src/github.com/peersafe/worktool/fabric/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+    tlsClientKey: /opt/gopath/src/github.com/peersafe/worktool/fabric/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
+mq:
+    mqAddress:
+#      - "amqp://xn:123456@10.10.255.103:5672/"
+      - "amqp://guest:guest@localhost:5672/"
+    queueName: "assetQueue"
+log:
+    apiserver: DEBUG
+    sdk: DEBUG
+    grpc: DEBUG
+   # grpc: ERROR
+
+
+
+

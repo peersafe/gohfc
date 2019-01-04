@@ -11,6 +11,7 @@ import (
 )
 
 type Block struct {
+	BlockType             cb.HeaderType       `json:"block_type,omitempty"`
 	Header                *cb.BlockHeader     `json:"header,omitempty"`
 	BlockTimeStamp        time.Time           `json:"block_time_stamp"`
 	Transactions          []*Transaction      `json:"transactions,omitempty"`
