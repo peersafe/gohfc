@@ -8,16 +8,26 @@ import (
 	"github.com/peersafe/gohfc"
 	"io/ioutil"
 	"time"
+	"encoding/asn1"
+	"github.com/hyperledger/fabric/common/util"
 )
 
 var (
 	logger   = logging.MustGetLogger("sdk")
 	funcName = flag.String("function", "", "invoke,query,listen,checkordconn")
+	num = flag.Uint64("num", 2, "invoke,query,listen,checkordconn")
 )
+
+
+type asn1Header struct {
+	Number       int64
+	PreviousHash []byte
+	DataHash     []byte
+}
 
 func main() {
 	flag.Parse()
-	handler, err := gohfc.InitSdkByFile("./zyfclient.yaml")
+	handler, err := gohfc.InitSdkByFile("./client.yaml")
 	if err != nil {
 		logger.Error(err)
 		return
@@ -28,6 +38,29 @@ func main() {
 	logger.Debugf("--testInterface main--")
 
 	switch *funcName {
+	case "getblock":
+		block, err := handler.GetBlockByNumber(*num,"mychannel")
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("getblock")
+		fmt.Printf("num=%d\n",block.Header.Number)
+		fmt.Printf("previoushash=%s\n",fmt.Sprintf("%x\n",block.Header.PreviousHash))
+		fmt.Printf("dathash=%s\n",fmt.Sprintf("%x\n",block.Header.DataHash))
+		asn1Header := asn1Header{
+			PreviousHash: block.Header.PreviousHash,
+			DataHash:     block.Header.DataHash,
+			Number:     int64(block.Header.Number),
+		}
+		result, err := asn1.Marshal(asn1Header)
+		if err != nil {
+			// Errors should only arise for types which cannot be encoded, since the
+			// BlockHeader type is known a-priori to contain only encodable types, an
+			// error here is fatal and should not be propogated
+			panic(err)
+		}
+		nextnum := block.Header.Number
+		fmt.Printf("cal %d num blockhash=%s\n",nextnum,fmt.Sprintf("%x\n",util.ComputeSHA256(result)))
 	case "invoke":
 		res, err := handler.Invoke([]string{"invoke", "a", "b", "1"}, "mychannel", "factor")
 		if err != nil {
