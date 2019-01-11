@@ -10,6 +10,8 @@ import (
 	"time"
 	"encoding/asn1"
 	"github.com/hyperledger/fabric/common/util"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -54,13 +56,29 @@ func main() {
 		}
 		result, err := asn1.Marshal(asn1Header)
 		if err != nil {
-			// Errors should only arise for types which cannot be encoded, since the
-			// BlockHeader type is known a-priori to contain only encodable types, an
-			// error here is fatal and should not be propogated
 			panic(err)
 		}
-		nextnum := block.Header.Number
-		fmt.Printf("cal %d num blockhash=%s\n",nextnum,fmt.Sprintf("%x\n",util.ComputeSHA256(result)))
+		fmt.Printf("cal %d num blockhash=%s\n",block.Header.Number,fmt.Sprintf("%x\n",util.ComputeSHA256(result)))
+		args1 := []string{"GetBlockByHash","mychannel", string(block.Header.PreviousHash)}
+
+		resps, err := handler.Query(args1,"mychannel","qscc")
+		if err != nil {
+			panic(err)
+		} else if len(resps) == 0 {
+			panic(err)
+		}
+		if resps[0].Error != nil {
+			panic(err)
+		}
+		data := resps[0].Response.Response.Payload
+		var blockA = new(common.Block)
+		err = proto.Unmarshal(data, blockA)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Printf("num=%d\n",blockA.Header.Number)
+		fmt.Printf("previoushash=%s\n",fmt.Sprintf("%x\n",blockA.Header.PreviousHash))
+		fmt.Printf("dathash=%s\n",fmt.Sprintf("%x\n",blockA.Header.DataHash))
 	case "invoke":
 		res, err := handler.Invoke([]string{"invoke", "a", "b", "1"}, "mychannel", "factor")
 		if err != nil {
