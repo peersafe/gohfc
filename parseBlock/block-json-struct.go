@@ -21,6 +21,7 @@ type Block struct {
 	ChannelID             string              `json:"channel_id"`
 	FirstTxTime           time.Time           `json:"first_tx_time"`
 	Size                  uint64              `json:"size"`
+	Config                string              `json:"config"` // json of config, use Config struct in config.go to json unmarshal
 	Error                 error
 }
 
@@ -83,10 +84,11 @@ type Endorsement struct {
 
 type SignatureHeader struct {
 	Certificate *x509.Certificate
+	MspId string `json:"msp_id,omitempty"`
 	Nonce       []byte `json:"nonce,omitempty"`
 }
 
 type NsReadWriteSet struct {
-	Namespace string           `json: "namespace,omitempty"`
-	KVRWSet   *kvrwset.KVRWSet `json: "kVRWSet,omitempty"`
+	Namespace string           `json:"namespace,omitempty"`
+	KVRWSet   *kvrwset.KVRWSet `json:"kVRWSet,omitempty"`
 }

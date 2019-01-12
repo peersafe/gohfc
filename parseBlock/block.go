@@ -16,27 +16,29 @@ import (
 	ab "github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
+	"bytes"
+	"github.com/hyperledger/fabric/common/tools/protolator"
+	"github.com/hyperledger/fabric/common/util"
 )
 
-func deserializeIdentity(serializedID []byte) (*x509.Certificate, error) {
+func deserializeIdentity(serializedID []byte) (*x509.Certificate, string, error) {
 	sId := &pbmsp.SerializedIdentity{}
 	//fmt.Println("serializedID : ", serializedID)
 	err := proto.Unmarshal(serializedID, sId)
 	if err != nil {
-		return nil, fmt.Errorf("Could not deserialize a SerializedIdentity, err %s", err)
+		return nil, "", fmt.Errorf("Could not deserialize a SerializedIdentity, err %s", err)
 	}
 
 	bl, _ := pem.Decode(sId.IdBytes)
 	if bl == nil {
-		return nil, fmt.Errorf("Could not decode the PEM structure")
+		return nil, "", fmt.Errorf("Could not decode the PEM structure")
 	}
 	cert, err := x509.ParseCertificate(bl.Bytes)
 	if err != nil {
-		return nil, fmt.Errorf("ParseCertificate failed %s", err)
+		return nil, "", fmt.Errorf("ParseCertificate failed %s", err)
 	}
-	//fmt.Println("cert : ", cert)
 
-	return cert, nil
+	return cert, sId.Mspid, nil
 }
 
 func copyChannelHeaderToLocalChannelHeader(localChannelHeader *ChannelHeader,
@@ -128,7 +130,7 @@ func getSignatureHeaderFromBlockMetadata(block *cb.Block, index cb.BlockMetadata
 
 func getSignatureHeaderFromBlockData(header *cb.SignatureHeader) *SignatureHeader {
 	signatureHeader := &SignatureHeader{}
-	signatureHeader.Certificate, _ = deserializeIdentity(header.Creator)
+	signatureHeader.Certificate, signatureHeader.MspId, _ = deserializeIdentity(header.Creator)
 	signatureHeader.Nonce = header.Nonce
 	return signatureHeader
 
@@ -304,6 +306,45 @@ func processBlock(block *cb.Block, size uint64) Block {
 			// add the transaction validation a
 			addTransactionValidation(&localBlock, localTransaction, txIndex)
 			//append the transaction
+			localBlock.Transactions = append(localBlock.Transactions, localTransaction)
+		} else if cb.HeaderType(chHeader.Type) == cb.HeaderType_CONFIG {
+			configEnv := &cb.ConfigEnvelope{}
+			_, err = utils.UnmarshalEnvelopeOfType(envelope, cb.HeaderType_CONFIG, configEnv)
+			if err != nil {
+				fmt.Printf("Bad configuration envelope: %s\n", err)
+				continue
+			}
+
+			buf := &bytes.Buffer{}
+			if err := protolator.DeepMarshalJSON(buf, configEnv.Config); err != nil {
+				fmt.Printf("Bad DeepMarshalJSON Buffer : %s\n", err)
+				continue
+			}
+
+			payload, err := utils.GetPayload(configEnv.LastUpdate)
+			if err != nil {
+				fmt.Printf("Error getting payload from envelope: %s\n", err)
+				continue
+			}
+			chHeader, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
+			if err != nil {
+				fmt.Printf("Error unmarshaling channel header: %s\n", err)
+				continue
+			}
+
+			if len(localTransaction.ProposalHash) == 0 {
+				localTransaction.ProposalHash = util.ComputeHash(configEnv.LastUpdate.Payload)
+			}
+
+			localChannelHeader := &ChannelHeader{}
+			copyChannelHeaderToLocalChannelHeader(localChannelHeader, chHeader, headerExtension)
+
+			localTransaction.TxActionSignatureHeader = localTransaction.SignatureHeader
+
+			localBlock.Config = buf.String()
+			// add the transaction validation
+			addTransactionValidation(&localBlock, localTransaction, txIndex)
+			// append the transaction
 			localBlock.Transactions = append(localBlock.Transactions, localTransaction)
 		}
 	}
