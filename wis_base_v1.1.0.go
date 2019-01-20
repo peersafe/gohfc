@@ -47,8 +47,8 @@ func (w *WisHandler) Query() (*QueryResponse, error) {
 		peers = append(peers, peer)
 	}
 
-	fmt.Println(peers)
-	fmt.Println(w.FaCli.Peers)
+	//fmt.Println(peers)
+	//fmt.Println(w.FaCli.Peers)
 
 	qRes, err := w.FaCli.Query(*w.Ide, *cc, peers)
 	if err != nil {
