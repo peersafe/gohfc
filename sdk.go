@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/cendhu/fetch-block/src/events/parse"
-	"github.com/hyperledger/fabric/gotools/build/gopath/src/github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/op/go-logging"
 	"github.com/spf13/viper"
