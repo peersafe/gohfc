@@ -4,9 +4,9 @@ crypto:
   hash: SHA2-256
 orderers:
   orderer0:
-    host: orderer.ord1.example.com:7050
+    host: orderer.example.com:7050
     insecure: true
-    tlsPath: ./crypto-config/ordererOrganizations/ord1.example.com/orderers/orderer.ord1.example.com/tls/server.crt
+    tlsPath: ./crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
 peers:
   peer0:
     host: peer0.org1.example.com:7051
@@ -27,9 +27,6 @@ other:
     mspConfigPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
     localMspId:          Org1MSP
     channelId:           mychannel
-    chaincodeName:       mycc
+    chaincodeName:       poc
     chaincodeVersion:    1.0
-policy:
-    orgs: org1 org2
-    rule: or
 

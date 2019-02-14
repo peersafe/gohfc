@@ -141,7 +141,7 @@ func (e *eventHub) readBlock(response chan<- parse.Block) {
 
 		switch in.Event.(type) {
 		case *peer.Event_Block:
-			size := uint64((len(in.String())))
+			size := uint64(len(in.String()))
 			response <- parse.ParseBlock(in.GetBlock(), size)
 		}
 	}

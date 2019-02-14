@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/peersafe/gohfc"
@@ -14,7 +15,13 @@ func main() {
 		fmt.Println(err)
 		return
 	}
-	//args := []string{"invoke", "a", "b", "20"}
+	if len(args) == 0 {
+		fmt.Println("./examples invoke a b 1")
+		fmt.Println("./examples query a")
+		fmt.Println("./examples listen")
+		return
+	}
+
 	peers := []string{"peer0"}
 	if args[0] == "invoke" {
 		result, err := gohfc.GetHandler().Invoke(args, peers, "orderer0")
@@ -36,16 +43,18 @@ func main() {
 		}
 		for {
 			select {
-			case v := <-ch:
-				fmt.Println(v)
+			case block := <-ch:
+				data, _ := json.Marshal(block.Error)
+				fmt.Printf("%s\n", data)
 			}
 		}
-	} else {
+	} else if args[0] == "queryQscc" {
 		result, err := gohfc.GetHandler().QueryByQscc(args, peers)
 		if err != nil {
 			fmt.Println(err)
 		}
-
 		fmt.Println(string(result[0].Response.Response.GetPayload()))
+	} else {
+		fmt.Println("----------args[0] err----------")
 	}
 }
