@@ -7,15 +7,7 @@ import (
 	"github.com/peersafe/gohfc"
 	"github.com/spf13/viper"
 	"github.com/op/go-logging"
-	"os"
 )
-
-func init() {
-	format := logging.MustStringFormatter("%{shortfile} %{time:2006-01-02 15:04:05.000} [%{module}] %{level:.4s} : %{message}")
-	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
-	logging.SetBackend(backendFormatter).SetLevel(logging.DEBUG, "gohfc")
-}
 
 func main() {
 	flag.Parse()
@@ -26,6 +18,7 @@ func main() {
 		fmt.Println("./examples listen")
 		return
 	}
+	logging.SetLevel(logging.DEBUG,"grpc")
 	if err := gohfc.InitSDK("./client.yaml"); err != nil {
 		fmt.Println(err)
 		return

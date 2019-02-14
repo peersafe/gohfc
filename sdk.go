@@ -15,6 +15,13 @@ import (
 
 var sdklogger = logging.MustGetLogger("gohfc")
 
+func init() {
+	format := logging.MustStringFormatter("%{shortfile} %{time:2006-01-02 15:04:05.000} [%{module}] %{level:.4s} : %{message}")
+	backend := logging.NewLogBackend(os.Stderr, "", 0)
+	backendFormatter := logging.NewBackendFormatter(backend, format)
+	logging.SetBackend(backendFormatter).SetLevel(logging.DEBUG, "gohfc")
+}
+
 //sdk handler
 type sdkHandler struct {
 	client   *FabricClient
