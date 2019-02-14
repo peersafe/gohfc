@@ -30,8 +30,6 @@ const timeout = 5
 // Broadcast Broadcast envelope to orderer for execution.
 func (o *Orderer) Broadcast(envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
 	if o.con ==nil{
-		o.Opts=append(o.Opts,grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(GRPC_MAX_SIZE),
-			grpc.MaxCallSendMsgSize(GRPC_MAX_SIZE)))
 		c, err := grpc.Dial(o.Uri, o.Opts...)
 		if err != nil {
 			return nil, fmt.Errorf("cannot connect to orderer: %s err is: %v", o.Name, err)
@@ -159,8 +157,9 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 			Timeout:             time.Duration(20) * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.WithBlock())
-
+		grpc.WithBlock(),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(GRPC_MAX_SIZE),
+			grpc.MaxCallSendMsgSize(GRPC_MAX_SIZE)))
 	conn, err := grpc.Dial(o.Uri, o.Opts...)
 	if err != nil {
 		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", o.Uri, err.Error())
