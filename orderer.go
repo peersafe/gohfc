@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"github.com/golang/protobuf/proto"
 	"time"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Orderer expose API's to communicate with orderers.
@@ -151,7 +152,19 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 		o.Opts = append(o.Opts, grpc.WithTransportCredentials(creds))
 
 	}
-	o.Opts = append(o.Opts, grpc.WithBlock())
-	o.Opts = append(o.Opts, grpc.WithTimeout(3*time.Second))
+	//o.Opts = append(o.Opts, grpc.WithTimeout(3*time.Second))
+	o.Opts = append(o.Opts,
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                time.Duration(1) * time.Minute,
+			Timeout:             time.Duration(20) * time.Second,
+			PermitWithoutStream: true,
+		}),
+		grpc.WithBlock())
+
+	conn, err := grpc.Dial(o.Uri, o.Opts...)
+	if err != nil {
+		return nil, fmt.Errorf("connect host=%s failed, err:%s\n", o.Uri, err.Error())
+	}
+	o.con = conn
 	return &o, nil
 }

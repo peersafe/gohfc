@@ -12,8 +12,10 @@ import (
 	"github.com/hyperledger/fabric/protos/orderer"
 	"context"
 	"github.com/cendhu/fetch-block/src/events/parse"
+	"github.com/op/go-logging"
 )
 
+var logger = logging.MustGetLogger("gohfc")
 // FabricClient expose API's to work with Hyperledger Fabric
 type FabricClient struct {
 	Crypto     CryptoSuite
@@ -504,7 +506,7 @@ func NewFabricClient(path string) (*FabricClient, error) {
 		}
 		newPeer.Name = name
 		peers[name] = newPeer
-
+		logger.Debugf("connet invokepeer success to %s\n",newPeer.Uri)
 	}
 
 	eventPeers := make(map[string]*Peer)
@@ -515,6 +517,7 @@ func NewFabricClient(path string) (*FabricClient, error) {
 		}
 		newEventPeer.Name = name
 		eventPeers[name] = newEventPeer
+		logger.Debugf("connet eventpeer success to %s\n",newEventPeer.Uri)
 	}
 
 	orderers := make(map[string]*Orderer)
@@ -525,6 +528,7 @@ func NewFabricClient(path string) (*FabricClient, error) {
 		}
 		newOrderer.Name = name
 		orderers[name] = newOrderer
+		logger.Debugf("connet orderer success to %s\n",newOrderer.Uri)
 	}
 	client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto}
 	return &client, nil
