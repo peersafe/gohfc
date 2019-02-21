@@ -22,7 +22,7 @@ peers:
     clientKey: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
 eventPeers:
   peer01:
-    host: 127.0.0.1:7051
+    host: 127.0.0.1:7053
     domainName: peer0.org1.example.com
     useTLS: true
     tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt

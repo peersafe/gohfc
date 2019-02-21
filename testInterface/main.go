@@ -10,7 +10,7 @@ import (
 
 var (
 	logger   = logging.MustGetLogger("testInterface")
-	funcName = flag.String("function", "", "invoke,query,listen,checkordconn")
+	funcName = flag.String("function", "", "invoke,query,listenfull(7051),listen(7053),checkordconn")
 )
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 			return
 		}
 		logger.Debugf("----query--result--%s\n", resVal[0].Response.Response.GetPayload())
-	case "listen":
+	case "listenfull":
 		ch, err := gohfc.GetHandler().ListenEventFullBlock("", 3)
 		if err != nil {
 			logger.Error(err)
@@ -59,6 +59,20 @@ func main() {
 			select {
 			case b := <-ch:
 				logger.Debugf("------listen block num---%d\n", b.Header.Number)
+			}
+		}
+	case "listen":
+		ch, err := gohfc.GetHandler().Listen("", "")
+		if err != nil {
+			logger.Error(err)
+			return
+		}
+		for {
+			select {
+			case b := <-ch:
+				logger.Debugf("------listen block num---%d\n", b.Header.Number)
+				//aa,_ := json.Marshal(b)
+				//logger.Debugf("---%s\n",aa)
 			}
 		}
 	case "checkordconn":

@@ -282,6 +282,9 @@ func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Blo
 	if channelName == "" {
 		return nil, fmt.Errorf("Listen  channelName is empty ")
 	}
+	if peerName == "" {
+		peerName = eventName
+	}
 	mspId := sdk.client.Channel.LocalMspId
 	if mspId == "" {
 		return nil, fmt.Errorf("Listen  mspId is empty ")
