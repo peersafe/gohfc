@@ -10,6 +10,7 @@ import (
 	"github.com/peersafe/gohfc/parseBlock"
 	"google.golang.org/grpc/connectivity"
 	"strconv"
+	"strings"
 )
 
 //sdk handler
@@ -341,7 +342,7 @@ type KeyValue struct {
 }
 
 func SetArgsTxid(txid string, args *[]string) {
-	if len(*args) == 2 && (*args)[0] == "SaveData" {
+	if len(*args) == 2 && (*args)[0] == "SaveData" && strings.Contains((*args)[1], "fabricTxId") {
 		var invokeRequest KeyValue
 		if err := json.Unmarshal([]byte((*args)[1]), &invokeRequest); err != nil {
 			logger.Debugf("SetArgsTxid umarshal invokeRequest failed")
