@@ -55,10 +55,20 @@ func main() {
 			logger.Error(err)
 			return
 		}
+
 		for {
 			select {
 			case b := <-ch:
+				if b.Error != nil {
+					logger.Errorf("ListenEventFullBlock err = %s", b.Error.Error())
+				}
 				logger.Debugf("------listen block num---%d\n", b.Header.Number)
+				if len(b.Transactions) == 0 {
+					logger.Debugf("ListenEventFullBlock Config Block BlockNumber= %d, ", b.Header.Number)
+				} else {
+					//aa,_ := json.Marshal(b)
+					//logger.Debugf("---%s\n",aa)
+				}
 			}
 		}
 	case "listen":
