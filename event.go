@@ -79,6 +79,9 @@ func (e *EventListener) newConnection() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	e.Peer.Opts = append(e.Peer.Opts, grpc.WithBlock(), grpc.WithTimeout(5*time.Second),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
+			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
 	conn, err := grpc.DialContext(ctx, e.Peer.Uri, e.Peer.Opts...)
 	if err != nil {
 		return fmt.Errorf("cannot make new connection to: %s err: %v", e.Peer.Uri, err)
@@ -397,10 +400,13 @@ type EventPort struct {
 }
 
 func (e *EventPort) connect(ctx context.Context, p *Peer) error {
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	p.Opts = append(p.Opts, grpc.WithBlock(), grpc.WithTimeout(5*time.Second),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
-	conn, err := grpc.Dial(p.Uri, p.Opts...)
+	conn, err := grpc.DialContext(ctx, p.Uri, p.Opts...)
 	if err != nil {
 		return err
 	}
@@ -443,7 +449,6 @@ func (e *EventPort) register(mspId string, identity *Identity, crypto CryptoSuit
 }
 
 func (e *EventPort) Disconnect() {
-	e.client.CloseSend()
 	e.event.connection.Close()
 }
 

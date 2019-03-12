@@ -909,6 +909,12 @@ func (ac *addrConn) resetTransport(drain bool) error {
 	ac.cc.mu.RUnlock()
 	for retries := 0; ; retries++ {
 		ac.mu.Lock()
+		if retries > 30 {
+			ac.csEvltr.csMgr.updateState(connectivity.Shutdown)
+			ac.state = connectivity.Shutdown
+			ac.mu.Unlock()
+			return errConnClosing
+		}
 		if ac.state == connectivity.Shutdown {
 			// ac.tearDown(...) has been invoked.
 			ac.mu.Unlock()
