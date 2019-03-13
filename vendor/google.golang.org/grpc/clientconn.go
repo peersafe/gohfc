@@ -909,7 +909,7 @@ func (ac *addrConn) resetTransport(drain bool) error {
 	ac.cc.mu.RUnlock()
 	for retries := 0; ; retries++ {
 		ac.mu.Lock()
-		if retries > 30 {
+		if retries > 10 {
 			ac.csEvltr.csMgr.updateState(connectivity.Shutdown)
 			ac.state = connectivity.Shutdown
 			ac.mu.Unlock()
