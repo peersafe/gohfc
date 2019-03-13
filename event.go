@@ -401,8 +401,6 @@ type EventPort struct {
 
 func (e *EventPort) connect(ctx context.Context, p *Peer) error {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	p.Opts = append(p.Opts, grpc.WithBlock(), grpc.WithTimeout(5*time.Second),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
