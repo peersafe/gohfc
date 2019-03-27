@@ -353,7 +353,6 @@ func SetArgsTxid(txid string, args *[]string) {
 			logger.Debugf("SetArgsTxid umarshal message failed")
 			return
 		}
-		invokeRequest.Key = txid
 		msg["fabricTxId"] = txid
 		v, _ := json.Marshal(msg)
 		invokeRequest.Value = string(v)
