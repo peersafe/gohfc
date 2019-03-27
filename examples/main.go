@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
-	"github.com/peersafe/gohfc"
 	"os"
 
+	"github.com/peersafe/gohfc"
+
 	"context"
-	"github.com/peersafe/gohfc/parseBlock"
 	"math/rand"
+
+	"github.com/peersafe/gohfc/parseBlock"
 )
 
 const ADM_PK = "/path/to/admin/cert.pem"
@@ -83,7 +85,7 @@ func main() {
 func eventFullBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := client.ListenForFullBlock(ctx, *identity, "peer0", "testchannel", ch)
+	err := client.ListenForFullBlock(ctx, *identity, 0, "peer0", "testchannel", ch)
 	if err != nil {
 		fmt.Println(err)
 		cancel()
@@ -97,7 +99,7 @@ func eventFilteredBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
 
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := client.ListenForFullBlock(ctx, *identity, "peer0", "testchannel", ch)
+	err := client.ListenForFullBlock(ctx, *identity, 0, "peer0", "testchannel", ch)
 	if err != nil {
 		fmt.Println(err)
 		cancel()

@@ -1,10 +1,10 @@
 crypto:
-   family: gm
-   algorithm: P256SM2
-   hash: SM3
-#   family: ecdsa
-#   algorithm: P256-SHA256
-#   hash: SHA2-256
+#   family: gm
+#   algorithm: P256SM2
+#   hash: SM3
+   family: ecdsa
+   algorithm: P256-SHA256
+   hash: SHA2-256
 orderers:
   orderer0:
     host: 127.0.0.1:7050

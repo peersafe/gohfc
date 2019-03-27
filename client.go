@@ -9,12 +9,13 @@ import (
 	"errors"
 	"fmt"
 
+	"math"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/peersafe/gohfc/parseBlock"
-	"math"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -27,7 +28,6 @@ type FabricClient struct {
 	Mq         Mq
 	Log        Log
 	Event      *EventListener
-	EventPort  *EventPort
 }
 
 // CreateUpdateChannel read channel config generated (usually) from configtxgen and send it to orderer
@@ -600,26 +600,6 @@ func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Iden
 	return nil
 }
 
-// Listen v 1.0.4 -- port ==> 7053
-func (c *FabricClient) Listen(ctx context.Context, identity *Identity, eventPeer, channelId, mspId string, response chan<- parseBlock.Block) error {
-	ep, ok := c.EventPeers[eventPeer]
-	if !ok {
-		return ErrPeerNameNotFound
-	}
-	eventPort := &EventPort{
-		event: EventListener{
-			Context:   ctx,
-			Peer:      *ep,
-			Identity:  *identity,
-			ChannelId: channelId,
-			Crypto:    c.Crypto,
-			FullBlock: false,
-		},
-	}
-	c.EventPort = eventPort
-	return c.EventPort.newEventListener(response, mspId)
-}
-
 // NewFabricClientFromConfig create a new FabricClient from ClientConfig
 func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 	var crypto CryptoSuite
@@ -653,7 +633,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 
 	eventPeers := make(map[string]*Peer)
 	for name, p := range config.EventPeers {
-		newEventPeer, err := NewPeerFromConfig(config.ChannelConfig, p, crypto)
+		newEventPeer, err := NewPeerFromConfig(config.ChannelConfig, p, crypto) // TODO 可能会和上面的重复
 		if err != nil {
 			return nil, err
 		}

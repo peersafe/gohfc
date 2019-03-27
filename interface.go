@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc/parseBlock"
 	"google.golang.org/grpc/connectivity"
-	"strconv"
-	"strings"
 )
 
 //sdk handler
@@ -271,32 +272,6 @@ func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) 
 	//for d := range ch {
 	//	fmt.Println(d)
 	//}
-	return ch, nil
-}
-
-//if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-// Listen v 1.0.4 -- port ==> 7053
-func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Block, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
-	if channelName == "" {
-		return nil, fmt.Errorf("Listen  channelName is empty ")
-	}
-	if peerName == "" {
-		peerName = eventName
-	}
-	mspId := sdk.client.Channel.LocalMspId
-	if mspId == "" {
-		return nil, fmt.Errorf("Listen  mspId is empty ")
-	}
-	ch := make(chan parseBlock.Block)
-	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.Listen(ctx, sdk.identity, peerName, channelName, mspId, ch)
-	if err != nil {
-		cancel()
-		return nil, err
-	}
 	return ch, nil
 }
 

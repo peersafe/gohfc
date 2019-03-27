@@ -110,22 +110,6 @@ func (w *WisHandler) ListenForFullBlock(response chan<- parseBlock.Block) error 
 	return nil
 }
 
-// Listen v 1.0.4 -- port ==> 7053
-func (w *WisHandler) Listen(response chan<- parseBlock.Block) error {
-	err := w.Init()
-	if err != nil {
-		return fmt.Errorf("Init Err : ", err.Error())
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	err = w.FaCli.Listen(ctx, w.Ide, w.EventPeer, w.Channeluuids, w.Mspids, response)
-	if err != nil {
-		cancel()
-		return err
-	}
-	return nil
-}
-
 func (w *WisHandler) Init() error {
 	format := logging.MustStringFormatter("%{shortfile} %{time:2006-01-02 15:04:05.000} [%{module}] %{level:.4s} : %{message}")
 	backend := logging.NewLogBackend(os.Stderr, "", 0)

@@ -5,20 +5,19 @@ License: Apache License Version 2.0
 package gohfc
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/protos/peer"
-	"github.com/hyperledger/fabric/protos/common"
-	"path/filepath"
-	"strings"
-	"os"
-	"io"
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"archive/tar"
-	"path"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"time"
 	"fmt"
+	"io"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/peer"
 )
 
 type ChainCodeType int32
@@ -43,7 +42,7 @@ type ChainCode struct {
 	rawArgs      [][]byte
 }
 
-func (c *ChainCode) toChainCodeArgs() ([][]byte) {
+func (c *ChainCode) toChainCodeArgs() [][]byte {
 	if len(c.rawArgs) > 0 {
 		return c.rawArgs
 	}
@@ -103,22 +102,20 @@ func createInstallProposal(identity Identity, req *InstallRequest, crypto Crypto
 	default:
 		return nil, ErrUnsupportedChaincodeType
 	}
-	now := time.Now()
 	depSpec, err := proto.Marshal(&peer.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &peer.ChaincodeSpec{
 			ChaincodeId: &peer.ChaincodeID{Name: req.ChainCodeName, Path: req.Namespace, Version: req.ChainCodeVersion},
 			Type:        peer.ChaincodeSpec_Type(req.ChainCodeType),
 		},
-		CodePackage:   packageBytes,
-		EffectiveDate: &timestamp.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())},
+		CodePackage: packageBytes,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	spec, err := chainCodeInvocationSpec(ChainCode{Type: req.ChainCodeType,
-		Name: LSCC,
-		Args: []string{"install"},
+		Name:     LSCC,
+		Args:     []string{"install"},
 		ArgBytes: depSpec,
 	})
 
