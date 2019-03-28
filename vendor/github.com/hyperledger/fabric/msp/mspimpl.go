@@ -94,6 +94,9 @@ type bccspmsp struct {
 	// These are the OUIdentifiers of the clients, peers and orderers.
 	// They are used to tell apart these entities
 	clientOU, peerOU *OUIdentifier
+
+	//MSPOrgRole
+	orgRole m.MSPOrgRole
 }
 
 // newBccspMsp returns an MSP instance backed up by a BCCSP
@@ -219,7 +222,8 @@ func (msp *bccspmsp) Setup(conf1 *m.MSPConfig) error {
 
 	// set the name for this msp
 	msp.name = conf.Name
-	mspLogger.Debugf("Setting up MSP instance %s", msp.name)
+	msp.orgRole = conf1.OrgRole
+	mspLogger.Debugf("Setting up MSP instance %s, orgRole %v", msp.name, msp.orgRole)
 
 	// setup
 	return msp.internalSetupFunc(conf)
@@ -718,4 +722,8 @@ func (msp *bccspmsp) IsWellFormed(identity *m.SerializedIdentity) error {
 	}
 	_, err := x509.ParseCertificate(bl.Bytes)
 	return err
+}
+
+func (msp *bccspmsp) GetMSPOrgRole() m.MSPOrgRole {
+	return msp.orgRole
 }

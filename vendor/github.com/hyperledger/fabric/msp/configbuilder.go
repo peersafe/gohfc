@@ -202,6 +202,15 @@ func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
 	}
 }
 
+func GetVerifyingMspConfigWithOrgRole(dir string, ID string, mspType string, orgRole msp.MSPOrgRole) (*msp.MSPConfig, error) {
+	mspConf, err := GetVerifyingMspConfig(dir, ID, mspType)
+	if err != nil {
+		return nil, err
+	}
+	mspConf.OrgRole = orgRole
+	return mspConf, nil
+}
+
 func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfig, error) {
 	cacertDir := filepath.Join(dir, cacerts)
 	admincertDir := filepath.Join(dir, admincerts)
@@ -337,11 +346,11 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 
 	// Compose FabricMSPConfig
 	fmspconf := &msp.FabricMSPConfig{
-		Admins:                        admincert,
-		RootCerts:                     cacerts,
-		IntermediateCerts:             intermediatecerts,
-		SigningIdentity:               sigid,
-		Name:                          ID,
+		Admins:            admincert,
+		RootCerts:         cacerts,
+		IntermediateCerts: intermediatecerts,
+		SigningIdentity:   sigid,
+		Name:              ID,
 		OrganizationalUnitIdentifiers: ouis,
 		RevocationList:                crls,
 		CryptoConfig:                  cryptoConfig,

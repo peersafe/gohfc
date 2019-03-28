@@ -80,3 +80,13 @@ func SignaturePolicy(policyName string, sigPolicy *cb.SignaturePolicyEnvelope) *
 		},
 	}
 }
+
+func RolePolicy(policyName string, policy *cb.RolePolicy) *StandardConfigPolicy {
+	return &StandardConfigPolicy{
+		key: policyName,
+		value: &cb.Policy{
+			Type:  int32(cb.Policy_ROLE),
+			Value: utils.MarshalOrPanic(policy),
+		},
+	}
+}

@@ -193,6 +193,8 @@ func NewBundle(channelID string, config *cb.Config) (*Bundle, error) {
 			policyProviderMap[pType] = cauthdsl.NewPolicyProvider(channelConfig.MSPManager())
 		case cb.Policy_MSP:
 			// Add hook for MSP Handler here
+		case cb.Policy_ROLE:
+			policyProviderMap[pType] = cauthdsl.NewRolePolicyProvider(channelConfig.MSPManager())
 		}
 	}
 

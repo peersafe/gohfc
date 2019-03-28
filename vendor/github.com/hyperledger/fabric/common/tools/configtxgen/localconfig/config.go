@@ -34,6 +34,9 @@ const (
 	// not given
 	TestChainID = "testchainid"
 
+	// CommonBaseChain is the channel name used for orderer generate default
+	CommonBaseChain = "cbc"
+
 	// SampleInsecureSoloProfile references the sample profile which does not
 	// include any MSPs and uses solo for ordering.
 	SampleInsecureSoloProfile = "SampleInsecureSolo"
@@ -144,6 +147,9 @@ type Organization struct {
 	// it was used for modifying the default policy generation, but policies
 	// may now be specified explicitly so it is redundant and unnecessary
 	AdminPrincipal string `yaml:"AdminPrincipal"`
+
+	//OrgRole is MSPOrgRole witch defined in MSP
+	OrgRole string `yaml:OrgRole`
 }
 
 // AnchorPeer encodes the necessary fields to identify an anchor peer.

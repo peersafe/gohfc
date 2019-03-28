@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package encoder
 
 import (
+	"strings"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/common/cauthdsl"
 	"github.com/hyperledger/fabric/common/channelconfig"
@@ -19,6 +21,7 @@ import (
 	"github.com/hyperledger/fabric/common/util"
 	"github.com/hyperledger/fabric/msp"
 	cb "github.com/hyperledger/fabric/protos/common"
+	mspprotos "github.com/hyperledger/fabric/protos/msp"
 	"github.com/hyperledger/fabric/protos/orderer/etcdraft"
 	pb "github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
@@ -51,6 +54,9 @@ const (
 
 	// ImplicitMetaPolicyType is the 'Type' string for implicit meta policies
 	ImplicitMetaPolicyType = "ImplicitMeta"
+
+	// RolePolicyType is the 'Type' string for implicit meta policies
+	RolePolicyType = "RolePolicy"
 )
 
 func addValue(cg *cb.ConfigGroup, value channelconfig.ConfigValue, modPolicy string) {
@@ -92,6 +98,18 @@ func addPolicies(cg *cb.ConfigGroup, policyMap map[string]*genesisconfig.Policy,
 				Policy: &cb.Policy{
 					Type:  int32(cb.Policy_SIGNATURE),
 					Value: utils.MarshalOrPanic(sp),
+				},
+			}
+		case RolePolicyType:
+			rp, err := cauthdsl.RolePolicyFromString(policy.Rule)
+			if err != nil {
+				return errors.Wrapf(err, "invalid role policy rule '%s'", policy.Rule)
+			}
+			cg.Policies[policyName] = &cb.ConfigPolicy{
+				ModPolicy: modPolicy,
+				Policy: &cb.Policy{
+					Type:  int32(cb.Policy_ROLE),
+					Value: utils.MarshalOrPanic(rp),
 				},
 			}
 		default:
@@ -191,10 +209,10 @@ func NewOrdererGroup(conf *genesisconfig.Orderer) (*cb.ConfigGroup, error) {
 			return nil, errors.Wrapf(err, "error adding policies to orderer group")
 		}
 	}
-	ordererGroup.Policies[BlockValidationPolicyKey] = &cb.ConfigPolicy{
-		Policy:    policies.ImplicitMetaAnyPolicy(channelconfig.WritersPolicyKey).Value(),
-		ModPolicy: channelconfig.AdminsPolicyKey,
-	}
+	//ordererGroup.Policies[BlockValidationPolicyKey] = &cb.ConfigPolicy{
+	//	Policy:    policies.ImplicitMetaAnyPolicy(channelconfig.WritersPolicyKey).Value(),
+	//	ModPolicy: channelconfig.AdminsPolicyKey,
+	//}
 	addValue(ordererGroup, channelconfig.BatchSizeValue(
 		conf.BatchSize.MaxMessageCount,
 		conf.BatchSize.AbsoluteMaxBytes,
@@ -244,19 +262,20 @@ func NewOrdererOrgGroup(conf *genesisconfig.Organization) (*cb.ConfigGroup, erro
 		return nil, errors.Wrapf(err, "1 - Error loading MSP configuration for org: %s", conf.Name)
 	}
 
+	mspConfig.OrgRole = getOrgRole(conf.OrgRole)
 	ordererOrgGroup := cb.NewConfigGroup()
 	if len(conf.Policies) == 0 {
 		logger.Warningf("Default policy emission is deprecated, please include policy specifications for the orderer org group %s in configtx.yaml", conf.Name)
-		addSignaturePolicyDefaults(ordererOrgGroup, conf.ID, conf.AdminPrincipal != genesisconfig.AdminRoleAdminPrincipal)
+		//addSignaturePolicyDefaults(ordererOrgGroup, conf.ID, conf.AdminPrincipal != genesisconfig.AdminRoleAdminPrincipal)
 	} else {
 		if err := addPolicies(ordererOrgGroup, conf.Policies, channelconfig.AdminsPolicyKey); err != nil {
 			return nil, errors.Wrapf(err, "error adding policies to orderer org group '%s'", conf.Name)
 		}
 	}
 
-	addValue(ordererOrgGroup, channelconfig.MSPValue(mspConfig), channelconfig.AdminsPolicyKey)
+	addValue(ordererOrgGroup, channelconfig.MSPValue(mspConfig), policies.ChannelOrdererMemberUpdates)
 
-	ordererOrgGroup.ModPolicy = channelconfig.AdminsPolicyKey
+	ordererOrgGroup.ModPolicy = policies.ChannelOrdererMemberUpdates
 	return ordererOrgGroup, nil
 }
 
@@ -301,16 +320,17 @@ func NewApplicationOrgGroup(conf *genesisconfig.Organization) (*cb.ConfigGroup, 
 		return nil, errors.Wrapf(err, "1 - Error loading MSP configuration for org %s", conf.Name)
 	}
 
+	mspConfig.OrgRole = getOrgRole(conf.OrgRole)
 	applicationOrgGroup := cb.NewConfigGroup()
 	if len(conf.Policies) == 0 {
 		logger.Warningf("Default policy emission is deprecated, please include policy specifications for the application org group %s in configtx.yaml", conf.Name)
-		addSignaturePolicyDefaults(applicationOrgGroup, conf.ID, conf.AdminPrincipal != genesisconfig.AdminRoleAdminPrincipal)
+		//addSignaturePolicyDefaults(applicationOrgGroup, conf.ID, conf.AdminPrincipal != genesisconfig.AdminRoleAdminPrincipal)
 	} else {
 		if err := addPolicies(applicationOrgGroup, conf.Policies, channelconfig.AdminsPolicyKey); err != nil {
 			return nil, errors.Wrapf(err, "error adding policies to application org group %s", conf.Name)
 		}
 	}
-	addValue(applicationOrgGroup, channelconfig.MSPValue(mspConfig), channelconfig.AdminsPolicyKey)
+	addValue(applicationOrgGroup, channelconfig.MSPValue(mspConfig), policies.ChannelApplicationMemberUpdates)
 
 	var anchorProtos []*pb.AnchorPeer
 	for _, anchorPeer := range conf.AnchorPeers {
@@ -319,9 +339,9 @@ func NewApplicationOrgGroup(conf *genesisconfig.Organization) (*cb.ConfigGroup, 
 			Port: int32(anchorPeer.Port),
 		})
 	}
-	addValue(applicationOrgGroup, channelconfig.AnchorPeersValue(anchorProtos), channelconfig.AdminsPolicyKey)
+	addValue(applicationOrgGroup, channelconfig.AnchorPeersValue(anchorProtos), policies.ChannelApplicationMemberUpdates)
 
-	applicationOrgGroup.ModPolicy = channelconfig.AdminsPolicyKey
+	applicationOrgGroup.ModPolicy = policies.ChannelApplicationMemberUpdates
 	return applicationOrgGroup, nil
 }
 
@@ -360,7 +380,7 @@ func NewConsortiumGroup(conf *genesisconfig.Consortium) (*cb.ConfigGroup, error)
 		}
 	}
 
-	addValue(consortiumGroup, channelconfig.ChannelCreationPolicyValue(policies.ImplicitMetaAnyPolicy(channelconfig.AdminsPolicyKey).Value()), ordererAdminsPolicyName)
+	addValue(consortiumGroup, channelconfig.ChannelCreationPolicyValue(policies.RolePolicy(channelconfig.ChannelCreationPolicyKey, &cb.RolePolicy{Percent: 1, Role: mspprotos.MSPOrgRole_CORE}).Value()), ordererAdminsPolicyName)
 
 	consortiumGroup.ModPolicy = ordererAdminsPolicyName
 	return consortiumGroup, nil
@@ -477,4 +497,25 @@ func (bs *Bootstrapper) GenesisBlockForChannel(channelID string) *cb.Block {
 		logger.Panicf("Error creating genesis block from channel group: %s", err)
 	}
 	return block
+}
+
+// getOrgRole returns msp.MSPOrgRole from string
+func getOrgRole(role string) mspprotos.MSPOrgRole {
+	var mspRole mspprotos.MSPOrgRole
+	upper := strings.ToUpper(strings.TrimSpace(role))
+	switch upper {
+	case "ORDER":
+		fallthrough
+	case "ORDERER":
+		mspRole = mspprotos.MSPOrgRole_ORDERER
+	case "CORE":
+		mspRole = mspprotos.MSPOrgRole_CORE
+	case "MAIN":
+		mspRole = mspprotos.MSPOrgRole_MAIN
+	case "NORMAL":
+		mspRole = mspprotos.MSPOrgRole_NORMAL
+	default:
+		mspRole = mspprotos.MSPOrgRole_NORMAL
+	}
+	return mspRole
 }

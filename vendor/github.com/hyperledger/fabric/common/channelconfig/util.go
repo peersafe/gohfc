@@ -27,6 +27,9 @@ const (
 	// AdminsPolicyKey is the key used for the read policy
 	AdminsPolicyKey = "Admins"
 
+	// MemberUpdatesPolicyKey is the key used for member update
+	MemberUpdatesPolicyKey = "MemberUpdates"
+
 	defaultHashingAlgorithm = bccsp.SHA256
 
 	defaultBlockDataHashingStructureWidth = math.MaxUint32

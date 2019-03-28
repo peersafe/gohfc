@@ -45,6 +45,13 @@ const (
 	// RoleOrderer = "orderer" TODO
 )
 
+const (
+	MSPOrgRole_CORE    = "CORE"
+	MSPOrgRole_MAIN    = "MAIN"
+	MSPOrgRole_NORMAL  = "NORMAL"
+	MSPOrgRole_ORDERER = "ORDERER"
+)
+
 var (
 	regex = regexp.MustCompile(
 		fmt.Sprintf("^([[:alnum:].-]+)([.])(%s|%s|%s|%s)$",
@@ -245,9 +252,9 @@ func FromString(policy string) (*common.SignaturePolicyEnvelope, error) {
 	// first we translate the and/or business into outof gates
 	intermediate, err := govaluate.NewEvaluableExpressionWithFunctions(
 		policy, map[string]govaluate.ExpressionFunction{
-			GateAnd:                    and,
-			strings.ToLower(GateAnd):   and,
-			strings.ToUpper(GateAnd):   and,
+			GateAnd:                  and,
+			strings.ToLower(GateAnd): and,
+			strings.ToUpper(GateAnd): and,
 			GateOr:                     or,
 			strings.ToLower(GateOr):    or,
 			strings.ToUpper(GateOr):    or,
@@ -338,4 +345,42 @@ func FromString(policy string) (*common.SignaturePolicyEnvelope, error) {
 	}
 
 	return p, nil
+}
+
+// Parse RolePolciy from string as follows:
+// role,percent
+// where
+// - role is core/main/normal/orderer
+// - percent is an integer of [0,100]
+func RolePolicyFromString(policy string) (*common.RolePolicy, error) {
+	ss := strings.Split(policy, ",")
+	if len(ss) != 2 {
+		return nil, fmt.Errorf("invalid policy string '%s'", policy)
+	}
+	roleString := strings.ToUpper(strings.TrimSpace(ss[0]))
+	percentString := strings.TrimSpace(ss[1])
+	var role msp.MSPOrgRole
+	switch roleString {
+	case MSPOrgRole_CORE:
+		role = msp.MSPOrgRole_CORE
+	case MSPOrgRole_MAIN:
+		role = msp.MSPOrgRole_MAIN
+	case MSPOrgRole_NORMAL:
+		role = msp.MSPOrgRole_NORMAL
+	case MSPOrgRole_ORDERER:
+		role = msp.MSPOrgRole_ORDERER
+	default:
+		return nil, fmt.Errorf("invalid role string '%s'", roleString)
+	}
+
+	percent, err := strconv.Atoi(percentString)
+	if err != nil || percent < 0 || percent > 100 {
+		return nil, fmt.Errorf("invalid percent string %s", percentString)
+	}
+
+	cb := &common.RolePolicy{
+		Percent: int32(percent),
+		Role:    role,
+	}
+	return cb, nil
 }

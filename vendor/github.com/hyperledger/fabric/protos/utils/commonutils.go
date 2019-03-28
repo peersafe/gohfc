@@ -207,6 +207,22 @@ func SetTxID(channelHeader *cb.ChannelHeader, signatureHeader *cb.SignatureHeade
 	return nil
 }
 
+func ExtractConfigEnvelope(payload *cb.Payload) (*cb.ConfigEnvelope, error) {
+	ce := &cb.ConfigEnvelope{}
+	if err := proto.Unmarshal(payload.Data, ce); err != nil {
+		return nil, err
+	}
+	return ce, nil
+}
+
+func ExtractConfigEnvelopeOrPanic(payload *cb.Payload) *cb.ConfigEnvelope {
+	ce := &cb.ConfigEnvelope{}
+	if err := proto.Unmarshal(payload.Data, ce); err != nil {
+		panic(fmt.Errorf("Error unmarshaling data to ConfigEnvelope: %s", err))
+	}
+	return ce
+}
+
 // MakePayloadHeader creates a Payload Header.
 func MakePayloadHeader(ch *cb.ChannelHeader, sh *cb.SignatureHeader) *cb.Header {
 	return &cb.Header{

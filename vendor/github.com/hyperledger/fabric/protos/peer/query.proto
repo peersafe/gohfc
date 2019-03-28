@@ -51,6 +51,12 @@ message ChaincodeInfo {
     //                H(CodePackage)
     //              )
     bytes id = 7;
+
+    // which mspid installed chaincode.
+    string mspId = 8;
+    // installed date .
+    string createDate = 9;
+    string remark = 10;
 }
 
 // ChannelQueryResponse returns information about each channel that pertains
