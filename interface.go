@@ -337,3 +337,19 @@ func SetArgsTxid(txid string, args *[]string) {
 		(*args)[1] = string(tempData)
 	}
 }
+
+func (sdk *sdkHandler) LSCCInvoke(args []string) (*InvokeResponse, error) {
+	peerNames := getSendPeerName()
+	orderName := getSendOrderName()
+	if len(peerNames) == 0 || orderName == "" {
+		return nil, fmt.Errorf("config peer order is err")
+	}
+	chaincode := &ChainCode{
+		ChannelId: "cdc",
+		Type:      ChaincodeSpec_GOLANG,
+		Name:      "LSCC",
+		Version:   "1.0",
+		Args:      args,
+	}
+	return sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
+}

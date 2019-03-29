@@ -6,9 +6,10 @@ package gohfc
 
 import (
 	"fmt"
+	"io/ioutil"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
-	"io/ioutil"
 )
 
 const LSCC = "lscc"
@@ -122,6 +123,68 @@ func buildAndSignConfigUpdate(identity Identity, configUpdateEnvelope *common.Co
 	configSignature.SignatureHeader = sigHeaderBytes
 	configSignature.Signature = sig
 	configUpdateEnvelope.Signatures = append(configUpdateEnvelope.GetSignatures(), configSignature)
+
+	channelHeaderBytes, err := channelHeader(common.HeaderType_CONFIG_UPDATE, txId, channelId, 0, nil)
+	header := header(sigHeaderBytes, channelHeaderBytes)
+
+	envelopeBytes, err := proto.Marshal(configUpdateEnvelope)
+	if err != nil {
+		return nil, err
+	}
+	commonPayload, err := payload(header, envelopeBytes)
+	if err != nil {
+		return nil, err
+	}
+	signedCommonPayload, err := crypto.Sign(commonPayload, identity.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	return &common.Envelope{Payload: commonPayload, Signature: signedCommonPayload}, nil
+}
+
+// sign config update tx
+func SignConfigUpdate(identity Identity, configUpdateEnvelope *common.ConfigUpdateEnvelope, crypto CryptoSuite) (*common.ConfigSignature, error) {
+	creator, err := marshalProtoIdentity(identity)
+	if err != nil {
+		return nil, err
+	}
+	txId, err := newTransactionId(creator, crypto)
+	if err != nil {
+		return nil, err
+	}
+
+	sigHeaderBytes, err := signatureHeader(creator, txId)
+	if err != nil {
+		return nil, err
+	}
+
+	sig, err := crypto.Sign(append(sigHeaderBytes, configUpdateEnvelope.GetConfigUpdate()...), identity.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	configSignature := new(common.ConfigSignature)
+	configSignature.SignatureHeader = sigHeaderBytes
+	configSignature.Signature = sig
+
+	return configSignature, nil
+}
+
+// build config update tx
+func buildConfigUpdate(identity Identity, configUpdateEnvelope *common.ConfigUpdateEnvelope, crypto CryptoSuite, channelId string) (*common.Envelope, error) {
+	creator, err := marshalProtoIdentity(identity)
+	if err != nil {
+		return nil, err
+	}
+	txId, err := newTransactionId(creator, crypto)
+	if err != nil {
+		return nil, err
+	}
+
+	sigHeaderBytes, err := signatureHeader(creator, txId)
+	if err != nil {
+		return nil, err
+	}
 
 	channelHeaderBytes, err := channelHeader(common.HeaderType_CONFIG_UPDATE, txId, channelId, 0, nil)
 	header := header(sigHeaderBytes, channelHeaderBytes)
