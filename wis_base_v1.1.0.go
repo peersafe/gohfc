@@ -12,20 +12,21 @@ import (
 )
 
 type WisHandler struct {
-	PeerConfMap      map[string]PeerConfig
-	OrdererConf      OrdererConfig
-	Mspids           string
-	Pubkeys          string
-	Prikeys          string
-	CryptoFamilys    string
-	Channeluuids     string
-	ChaincodeName    string
-	ChaincodeVersion string
-	EventPeer        string
-	OrderName        string
-	Args             []string
-	Ide              *Identity
-	FaCli            *FabricClient
+	PeerConfMap       map[string]PeerConfig
+	OrdererConf       OrdererConfig
+	Mspids            string
+	Pubkeys           string
+	Prikeys           string
+	CryptoFamilys     string
+	Channeluuids      string
+	ChaincodeName     string
+	ChaincodeVersion  string
+	ChaincodeLanguage string
+	EventPeer         string
+	OrderName         string
+	Args              []string
+	Ide               *Identity
+	FaCli             *FabricClient
 }
 
 var wis_logger = logging.MustGetLogger("event")
@@ -285,10 +286,17 @@ func (w *WisHandler) getChainCodeObj() (*ChainCode, error) {
 
 	chaincode := ChainCode{
 		ChannelId: channelid,
-		Type:      ChaincodeSpec_GOLANG,
 		Name:      chaincodeName,
 		Version:   chaincodeVersion,
 		Args:      w.Args,
+	}
+	if w.ChaincodeLanguage == "" || w.ChaincodeLanguage == "golang" {
+		chaincode.Type = ChaincodeSpec_GOLANG
+	}else if w.ChaincodeLanguage == "java" {
+		chaincode.Type = ChaincodeSpec_JAVA
+	}else {
+		// 当前不支持其他版本
+		return nil, fmt.Errorf("The ChainCode Language ( %s ) Nonsupport!! ",w.ChaincodeLanguage)
 	}
 
 	return &chaincode, nil
