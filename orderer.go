@@ -50,6 +50,27 @@ func (o *Orderer) Broadcast(envelope *common.Envelope) (*orderer.BroadcastRespon
 	return response, err
 }
 
+func (o *Orderer) BroadcastWithClose(envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
+	bcc, err := o.client.Broadcast(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		bcc.CloseSend()
+		o.con.Close()
+	}()
+	bcc.Send(envelope)
+	response, err := bcc.Recv()
+	if err != nil {
+		return nil, err
+	}
+	if response.Status != common.Status_SUCCESS {
+		return nil, fmt.Errorf("unexpected status: %v", response.Status)
+	}
+
+	return response, err
+}
+
 // Deliver delivers envelope to orderer. Please note that new connection will be created on every call of Deliver.
 func (o *Orderer) Deliver(envelope *common.Envelope) (*common.Block, error) {
 

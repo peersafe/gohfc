@@ -5,16 +5,16 @@ License: Apache License Version 2.0
 package gohfc
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/protos/msp"
-	"encoding/pem"
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/hyperledger/fabric/protos/common"
+	"encoding/pem"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"time"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/msp"
 	"github.com/hyperledger/fabric/protos/peer"
-	"bytes"
+	"time"
 )
 
 // TransactionId represents transaction identifier. TransactionId is the unique transaction number.
@@ -79,7 +79,7 @@ func signatureHeader(creator []byte, tx *TransactionId) ([]byte, error) {
 }
 
 // header creates new common.header from signature header and channel header
-func header(signatureHeader, channelHeader []byte) (*common.Header) {
+func header(signatureHeader, channelHeader []byte) *common.Header {
 	header := new(common.Header)
 	header.SignatureHeader = signatureHeader
 	header.ChannelHeader = channelHeader
@@ -200,6 +200,25 @@ func sendToPeers(peers []*Peer, prop *peer.SignedProposal) []*PeerResponse {
 	return resp
 }
 
+func sendToPeersWithClose(peers []*Peer, prop *peer.SignedProposal) []*PeerResponse {
+	ch := make(chan *PeerResponse)
+	l := len(peers)
+	resp := make([]*PeerResponse, 0, l)
+	for _, p := range peers {
+		go p.Endorse(ch, prop)
+	}
+	for i := 0; i < l; i++ {
+		resp = append(resp, <-ch)
+	}
+	close(ch)
+	defer func() {
+		for _, p := range peers {
+			p.conn.Close()
+		}
+	}()
+	return resp
+}
+
 func createTransactionProposal(identity Identity, cc ChainCode, crypto CryptoSuite) (*transactionProposal, error) {
 	creator, err := marshalProtoIdentity(identity)
 	if err != nil {
@@ -211,7 +230,7 @@ func createTransactionProposal(identity Identity, cc ChainCode, crypto CryptoSui
 	}
 
 	SetArgsTxid(txId.TransactionId, &cc.Args)
-	
+
 	spec, err := chainCodeInvocationSpec(cc)
 	if err != nil {
 		return nil, err

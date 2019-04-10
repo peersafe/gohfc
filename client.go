@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/peersafe/gohfc/parseBlock"
+	"math"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -407,6 +408,33 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode, peers []str
 	return response, nil
 }
 
+func (c *FabricClient) QueryWithClose(identity Identity, chainCode ChainCode, peers []string) ([]*QueryResponse, error) {
+	execPeers := c.getPeers(peers)
+	if len(peers) != len(execPeers) {
+		return nil, ErrPeerNameNotFound
+	}
+	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
+	if err != nil {
+		return nil, err
+	}
+	proposal, err := signedProposal(prop.proposal, identity, c.Crypto)
+	if err != nil {
+		return nil, err
+	}
+	r := sendToPeersWithClose(execPeers, proposal)
+	response := make([]*QueryResponse, len(r))
+	for idx, p := range r {
+		ic := QueryResponse{PeerName: p.Name, Error: p.Err}
+		if p.Err != nil {
+			ic.Error = p.Err
+		} else {
+			ic.Response = p.Response
+		}
+		response[idx] = &ic
+	}
+	return response, nil
+}
+
 func (c *FabricClient) QueryByEvent(identity Identity, chainCode ChainCode, peers []string) ([]*QueryResponse, error) {
 	execPeers := c.getEventPeers(peers)
 	if len(peers) != len(execPeers) {
@@ -473,6 +501,38 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
 }
 
+func (c *FabricClient) InvokeWithClose(identity Identity, chainCode ChainCode, peers []string, orderer string) (*InvokeResponse, error) {
+	ord, ok := c.Orderers[orderer]
+	if !ok {
+		return nil, ErrInvalidOrdererName
+	}
+	execPeers := c.getPeers(peers)
+	if len(peers) != len(execPeers) {
+		return nil, ErrPeerNameNotFound
+	}
+	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
+	if err != nil {
+		return nil, err
+	}
+	proposal, err := signedProposal(prop.proposal, identity, c.Crypto)
+	if err != nil {
+		return nil, err
+	}
+	transaction, err := createTransaction(prop.proposal, sendToPeersWithClose(execPeers, proposal))
+	if err != nil {
+		return nil, err
+	}
+	signedTransaction, err := c.Crypto.Sign(transaction, identity.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+	reply, err := ord.BroadcastWithClose(&common.Envelope{Payload: transaction, Signature: signedTransaction})
+	if err != nil {
+		return nil, err
+	}
+	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
+}
+
 // QueryTransaction get data for particular transaction.
 // TODO for now it only returns status of the transaction, and not the whole data (payload, endorsement etc)
 func (c *FabricClient) QueryTransaction(identity Identity, channelId string, txId string, peers []string) ([]*QueryTransactionResponse, error) {
@@ -533,6 +593,25 @@ func (c *FabricClient) ListenForFullBlock(ctx context.Context, identity Identity
 		return err
 	}
 	err = listener.SeekNewest()
+	if err != nil {
+		return err
+	}
+	listener.Listen(response, nil)
+
+	c.Event = listener
+	return nil
+}
+
+func (c *FabricClient) ListenForFullBlockByIndex(ctx context.Context, identity Identity, eventPeer, channelId string, blockHeight uint64, response chan<- parseBlock.Block) error {
+	ep, ok := c.EventPeers[eventPeer]
+	if !ok {
+		return ErrPeerNameNotFound
+	}
+	listener, err := NewEventListener(ctx, c.Crypto, identity, *ep, channelId, EventTypeFullBlock)
+	if err != nil {
+		return err
+	}
+	err = listener.SeekRange(blockHeight, math.MaxUint64)
 	if err != nil {
 		return err
 	}
@@ -612,7 +691,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		newPeer.Name = name
 		newPeer.OrgName = p.OrgName
 		peers[name] = newPeer
-		logger.Debugf("Create the endorserpeer connection is successful : %s",name)
+		logger.Debugf("Create the endorserpeer connection is successful : %s", name)
 	}
 
 	eventPeers := make(map[string]*Peer)
@@ -623,7 +702,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		}
 		newEventPeer.Name = name
 		eventPeers[name] = newEventPeer
-		logger.Debugf("Create the eventpeer connection is successful : %s",name)
+		logger.Debugf("Create the eventpeer connection is successful : %s", name)
 	}
 
 	orderers := make(map[string]*Orderer)
@@ -634,7 +713,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		}
 		newOrderer.Name = name
 		orderers[name] = newOrderer
-		logger.Debugf("Create the orderer connection is successful : %s",name)
+		logger.Debugf("Create the orderer connection is successful : %s", name)
 	}
 	client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
 	return &client, nil

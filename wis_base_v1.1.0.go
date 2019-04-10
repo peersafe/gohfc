@@ -58,6 +58,34 @@ func (w *WisHandler) Query() (*QueryResponse, error) {
 	return qRes[0], nil
 }
 
+func (w *WisHandler) QueryWithClose() (*QueryResponse, error) {
+	// 初始化
+	err := w.Init()
+	if err != nil {
+		return nil, fmt.Errorf("Init Err : ", err.Error())
+	}
+	// 处理数据
+	cc, err := w.getChainCodeObj()
+	if err != nil {
+		return nil, err
+	}
+
+	var peers []string
+	for peer, _ := range w.PeerConfMap {
+		peers = append(peers, peer)
+	}
+
+	//fmt.Println(peers)
+	//fmt.Println(w.FaCli.Peers)
+
+	qRes, err := w.FaCli.QueryWithClose(*w.Ide, *cc, peers)
+	if err != nil {
+		wis_logger.Debug("Query Err = ", err.Error())
+		return nil, err
+	}
+	return qRes[0], nil
+}
+
 func (w *WisHandler) Invoke() (*InvokeResponse, error) {
 
 	err := w.Init()
@@ -76,6 +104,26 @@ func (w *WisHandler) Invoke() (*InvokeResponse, error) {
 	}
 
 	return w.FaCli.Invoke(*w.Ide, *cc, peers, w.OrderName)
+}
+
+func (w *WisHandler) InvokeWithClose() (*InvokeResponse, error) {
+
+	err := w.Init()
+	if err != nil {
+		return nil, fmt.Errorf("Init Err : ", err.Error())
+	}
+
+	cc, err := w.getChainCodeObj()
+	if err != nil {
+		return nil, err
+	}
+
+	var peers []string
+	for peer, _ := range w.PeerConfMap {
+		peers = append(peers, peer)
+	}
+
+	return w.FaCli.InvokeWithClose(*w.Ide, *cc, peers, w.OrderName)
 }
 
 func (w *WisHandler) ListenEventFullBlock(response chan<- EventBlockResponse) error {
@@ -102,6 +150,22 @@ func (w *WisHandler) ListenForFullBlock(response chan<- parseBlock.Block) error 
 
 	ctx, cancel := context.WithCancel(context.Background())
 	err = w.FaCli.ListenForFullBlock(ctx, *w.Ide, w.EventPeer, w.Channeluuids, response)
+	if err != nil {
+		cancel()
+		return err
+	}
+
+	return nil
+}
+
+func (w *WisHandler) ListenForFullBlockByIndex(blockHeight uint64, response chan<- parseBlock.Block) error {
+	err := w.Init()
+	if err != nil {
+		return fmt.Errorf("Init Err : ", err.Error())
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err = w.FaCli.ListenForFullBlockByIndex(ctx, *w.Ide, w.EventPeer, w.Channeluuids, blockHeight, response)
 	if err != nil {
 		cancel()
 		return err
