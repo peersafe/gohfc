@@ -107,7 +107,9 @@ func (e *EventListener) newConnection() error {
 }
 
 func (e *EventListener) DisConnect() {
-	e.connection.Close()
+	if e.connection != nil{
+		e.connection.Close()
+	}
 }
 
 func (e *EventListener) SeekNewest() error {
