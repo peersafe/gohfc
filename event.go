@@ -449,7 +449,9 @@ func (e *EventPort) register(mspId string, identity *Identity, crypto CryptoSuit
 }
 
 func (e *EventPort) Disconnect() {
-	e.event.connection.Close()
+	if e.event.connection != nil{
+		e.event.connection.Close()
+	}
 }
 
 func (e *EventPort) readBlock(response chan<- parseBlock.Block) {
