@@ -86,5 +86,5 @@ func ComputeStringHash(input string) []byte {
 
 // ComputeHash computes the hash of the given bytes
 func ComputeHash(input []byte) []byte {
-	return util.ComputeSHA256(input)
+	return util.ComputeHash(input)
 }

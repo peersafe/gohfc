@@ -96,6 +96,11 @@ func (msp *bccspmsp) setupCrypto(conf *m.FabricMSPConfig) error {
 		msp.cryptoConfig.IdentityIdentifierHashFunction = bccsp.SHA256
 		mspLogger.Debugf("CryptoConfig.IdentityIdentifierHashFunction was nil. Move to defaults.")
 	}
+	if bccsp.UseGMCrypto {
+		msp.cryptoConfig.SignatureHashFamily = bccsp.SM3
+		msp.cryptoConfig.IdentityIdentifierHashFunction = bccsp.SM3
+		mspLogger.Debugf("Move CryptoConfig to SM3.")
+	}
 
 	return nil
 }
@@ -197,11 +202,14 @@ func (msp *bccspmsp) setupCRLs(conf *m.FabricMSPConfig) error {
 	return nil
 }
 
-func (msp *bccspmsp) finalizeSetupCAs(config *m.FabricMSPConfig) error {
+func (msp *bccspmsp) finalizeSetupCAs() error {
 	// ensure that our CAs are properly formed and that they are valid
 	for _, id := range append(append([]Identity{}, msp.rootCerts...), msp.intermediateCerts...) {
-		if !isCACert(id.(*identity).cert) {
-			return errors.Errorf("CA Certificate did not have the Subject Key Identifier extension, (SN: %s)", id.(*identity).cert.SerialNumber)
+		if !id.(*identity).cert.IsCA {
+			return errors.Errorf("CA Certificate did not have the CA attribute, (SN: %x)", id.(*identity).cert.SerialNumber)
+		}
+		if _, err := getSubjectKeyIdentifierFromCert(id.(*identity).cert); err != nil {
+			return errors.WithMessage(err, fmt.Sprintf("CA Certificate problem with Subject Key Identifier extension, (SN: %x)", id.(*identity).cert.SerialNumber))
 		}
 
 		if err := msp.validateCAIdentity(id.(*identity)); err != nil {
@@ -228,14 +236,14 @@ func (msp *bccspmsp) finalizeSetupCAs(config *m.FabricMSPConfig) error {
 }
 
 func (msp *bccspmsp) setupNodeOUs(config *m.FabricMSPConfig) error {
-	if config.FabricNodeOUs != nil {
+	if config.FabricNodeOus != nil {
 
-		msp.ouEnforcement = config.FabricNodeOUs.Enable
+		msp.ouEnforcement = config.FabricNodeOus.Enable
 
 		// ClientOU
-		msp.clientOU = &OUIdentifier{OrganizationalUnitIdentifier: config.FabricNodeOUs.ClientOUIdentifier.OrganizationalUnitIdentifier}
-		if len(config.FabricNodeOUs.ClientOUIdentifier.Certificate) != 0 {
-			certifiersIdentifier, err := msp.getCertifiersIdentifier(config.FabricNodeOUs.ClientOUIdentifier.Certificate)
+		msp.clientOU = &OUIdentifier{OrganizationalUnitIdentifier: config.FabricNodeOus.ClientOuIdentifier.OrganizationalUnitIdentifier}
+		if len(config.FabricNodeOus.ClientOuIdentifier.Certificate) != 0 {
+			certifiersIdentifier, err := msp.getCertifiersIdentifier(config.FabricNodeOus.ClientOuIdentifier.Certificate)
 			if err != nil {
 				return err
 			}
@@ -243,9 +251,9 @@ func (msp *bccspmsp) setupNodeOUs(config *m.FabricMSPConfig) error {
 		}
 
 		// PeerOU
-		msp.peerOU = &OUIdentifier{OrganizationalUnitIdentifier: config.FabricNodeOUs.PeerOUIdentifier.OrganizationalUnitIdentifier}
-		if len(config.FabricNodeOUs.PeerOUIdentifier.Certificate) != 0 {
-			certifiersIdentifier, err := msp.getCertifiersIdentifier(config.FabricNodeOUs.PeerOUIdentifier.Certificate)
+		msp.peerOU = &OUIdentifier{OrganizationalUnitIdentifier: config.FabricNodeOus.PeerOuIdentifier.OrganizationalUnitIdentifier}
+		if len(config.FabricNodeOus.PeerOuIdentifier.Certificate) != 0 {
+			certifiersIdentifier, err := msp.getCertifiersIdentifier(config.FabricNodeOus.PeerOuIdentifier.Certificate)
 			if err != nil {
 				return err
 			}
@@ -351,8 +359,11 @@ func (msp *bccspmsp) setupTLSCAs(conf *m.FabricMSPConfig) error {
 			continue
 		}
 
-		if !isCACert(cert) {
-			return errors.Errorf("CA Certificate did not have the Subject Key Identifier extension, (SN: %s)", cert.SerialNumber)
+		if !cert.IsCA {
+			return errors.Errorf("CA Certificate did not have the CA attribute, (SN: %x)", cert.SerialNumber)
+		}
+		if _, err := getSubjectKeyIdentifierFromCert(cert); err != nil {
+			return errors.WithMessage(err, fmt.Sprintf("CA Certificate problem with Subject Key Identifier extension, (SN: %x)", cert.SerialNumber))
 		}
 
 		if err := msp.validateTLSCAIdentity(cert, opts); err != nil {
@@ -399,7 +410,7 @@ func (msp *bccspmsp) preSetupV1(conf *m.FabricMSPConfig) error {
 	}
 
 	// Finalize setup of the CAs
-	if err := msp.finalizeSetupCAs(conf); err != nil {
+	if err := msp.finalizeSetupCAs(); err != nil {
 		return err
 	}
 

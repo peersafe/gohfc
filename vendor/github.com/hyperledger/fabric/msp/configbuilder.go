@@ -146,6 +146,14 @@ func SetupBCCSPKeystoreConfig(bccspConfig *factory.FactoryOpts, keystoreDir stri
 			bccspConfig.SwOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: keystoreDir}
 		}
 	}
+	if bccsp.UseGMCrypto {
+		bccspConfig = factory.GetDefaultOpts()
+		if bccspConfig.GmOpts.FileKeystore == nil ||
+			bccspConfig.GmOpts.FileKeystore.KeyStorePath == "" {
+			bccspConfig.GmOpts.Ephemeral = false
+			bccspConfig.GmOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: keystoreDir}
+		}
+	}
 
 	return bccspConfig
 }
@@ -291,7 +299,7 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 
 		// Prepare NodeOUs
 		if configuration.NodeOUs != nil && configuration.NodeOUs.Enable {
-			mspLogger.Info("Loading NodeOUs")
+			mspLogger.Debug("Loading NodeOUs")
 			if configuration.NodeOUs.ClientOUIdentifier == nil || len(configuration.NodeOUs.ClientOUIdentifier.OrganizationalUnitIdentifier) == 0 {
 				return nil, errors.New("Failed loading NodeOUs. ClientOU must be different from nil.")
 			}
@@ -301,8 +309,8 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 
 			nodeOUs = &msp.FabricNodeOUs{
 				Enable:             configuration.NodeOUs.Enable,
-				ClientOUIdentifier: &msp.FabricOUIdentifier{OrganizationalUnitIdentifier: configuration.NodeOUs.ClientOUIdentifier.OrganizationalUnitIdentifier},
-				PeerOUIdentifier:   &msp.FabricOUIdentifier{OrganizationalUnitIdentifier: configuration.NodeOUs.PeerOUIdentifier.OrganizationalUnitIdentifier},
+				ClientOuIdentifier: &msp.FabricOUIdentifier{OrganizationalUnitIdentifier: configuration.NodeOUs.ClientOUIdentifier.OrganizationalUnitIdentifier},
+				PeerOuIdentifier:   &msp.FabricOUIdentifier{OrganizationalUnitIdentifier: configuration.NodeOUs.PeerOUIdentifier.OrganizationalUnitIdentifier},
 			}
 
 			// Read certificates, if defined
@@ -313,7 +321,7 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 			if err != nil {
 				mspLogger.Infof("Failed loading ClientOU certificate at [%s]: [%s]", f, err)
 			} else {
-				nodeOUs.ClientOUIdentifier.Certificate = raw
+				nodeOUs.ClientOuIdentifier.Certificate = raw
 			}
 
 			// PeerOU
@@ -322,7 +330,7 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 			if err != nil {
 				mspLogger.Debugf("Failed loading PeerOU certificate at [%s]: [%s]", f, err)
 			} else {
-				nodeOUs.PeerOUIdentifier.Certificate = raw
+				nodeOUs.PeerOuIdentifier.Certificate = raw
 			}
 		}
 	} else {
@@ -335,19 +343,24 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 		IdentityIdentifierHashFunction: bccsp.SHA256,
 	}
 
+	if bccsp.UseGMCrypto {
+		cryptoConfig.SignatureHashFamily = bccsp.SM3
+		cryptoConfig.IdentityIdentifierHashFunction = bccsp.SM3
+	}
+
 	// Compose FabricMSPConfig
 	fmspconf := &msp.FabricMSPConfig{
-		Admins:            admincert,
-		RootCerts:         cacerts,
-		IntermediateCerts: intermediatecerts,
-		SigningIdentity:   sigid,
-		Name:              ID,
+		Admins:                        admincert,
+		RootCerts:                     cacerts,
+		IntermediateCerts:             intermediatecerts,
+		SigningIdentity:               sigid,
+		Name:                          ID,
 		OrganizationalUnitIdentifiers: ouis,
 		RevocationList:                crls,
 		CryptoConfig:                  cryptoConfig,
 		TlsRootCerts:                  tlsCACerts,
 		TlsIntermediateCerts:          tlsIntermediateCerts,
-		FabricNodeOUs:                 nodeOUs,
+		FabricNodeOus:                 nodeOUs,
 	}
 
 	fmpsjs, _ := proto.Marshal(fmspconf)
@@ -358,10 +371,11 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 }
 
 const (
-	IdemixConfigDirMsp              = "msp"
-	IdemixConfigDirUser             = "user"
-	IdemixConfigFileIssuerPublicKey = "IssuerPublicKey"
-	IdemixConfigFileSigner          = "SignerConfig"
+	IdemixConfigDirMsp                  = "msp"
+	IdemixConfigDirUser                 = "user"
+	IdemixConfigFileIssuerPublicKey     = "IssuerPublicKey"
+	IdemixConfigFileRevocationPublicKey = "RevocationPublicKey"
+	IdemixConfigFileSigner              = "SignerConfig"
 )
 
 // GetIdemixMspConfig returns the configuration for the Idemix MSP
@@ -371,9 +385,15 @@ func GetIdemixMspConfig(dir string, ID string) (*msp.MSPConfig, error) {
 		return nil, errors.Wrapf(err, "failed to read issuer public key file")
 	}
 
+	revocationPkBytes, err := readFile(filepath.Join(dir, IdemixConfigDirMsp, IdemixConfigFileRevocationPublicKey))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to read revocation public key file")
+	}
+
 	idemixConfig := &msp.IdemixMSPConfig{
-		Name: ID,
-		IPk:  ipkBytes,
+		Name:         ID,
+		Ipk:          ipkBytes,
+		RevocationPk: revocationPkBytes,
 	}
 
 	signerBytes, err := readFile(filepath.Join(dir, IdemixConfigDirUser, IdemixConfigFileSigner))
