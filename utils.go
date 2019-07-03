@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"os"
 	"time"
+	"io/ioutil"
+	"google.golang.org/grpc/grpclog"
 )
 
 func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
@@ -40,7 +42,8 @@ func SetLogLevel(level, name string) error {
 		return err
 	}
 	logging.SetBackend(backendFormatter).SetLevel(logLevel, name)
-	logger.Debugf("SetLogLevel level: %s, levelName: %s\n", level, name)
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2(ioutil.Discard, os.Stdout, os.Stderr))
+	logger.Debugf("SetLogLevel level: %s, levelName: %s  grpcLevel is Warning\n", level, name)
 	return nil
 }
 

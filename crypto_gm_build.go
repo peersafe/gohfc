@@ -158,6 +158,7 @@ func (c *ECCryptSuite) GetFamily() string {
 
 // NewECCryptSuite creates new Elliptic curve crypto suite from config
 func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
+	logger.Infof("********The Version is GM************")
 	var suite *ECCryptSuite
 	switch config.Algorithm {
 	case "P256-SHA256":
@@ -169,7 +170,7 @@ func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 	case "P256SM2":
 		suite = &ECCryptSuite{curve: elliptic.P256SM2(), sigAlgorithm: x509.ECDSAWithSHA256}
 	default:
-		return nil, ErrInvalidAlgorithm
+		return nil, ErrSMInvalidAlgorithm
 	}
 
 	switch config.Hash {

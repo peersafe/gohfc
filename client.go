@@ -27,7 +27,7 @@ type FabricClient struct {
 	Mq         Mq
 	Log        Log
 	Event      *EventListener
-	EventPort  *EventPort
+	//EventPort  *EventPort
 }
 
 // CreateUpdateChannel read channel config generated (usually) from configtxgen and send it to orderer
@@ -602,22 +602,25 @@ func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Iden
 
 // Listen v 1.0.4 -- port ==> 7053
 func (c *FabricClient) Listen(ctx context.Context, identity *Identity, eventPeer, channelId, mspId string, response chan<- parseBlock.Block) error {
-	ep, ok := c.EventPeers[eventPeer]
-	if !ok {
-		return ErrPeerNameNotFound
-	}
-	eventPort := &EventPort{
-		event: EventListener{
-			Context:   ctx,
-			Peer:      *ep,
-			Identity:  *identity,
-			ChannelId: channelId,
-			Crypto:    c.Crypto,
-			FullBlock: false,
-		},
-	}
-	c.EventPort = eventPort
-	return c.EventPort.newEventListener(response, mspId)
+	return nil
+	/*
+		ep, ok := c.EventPeers[eventPeer]
+		if !ok {
+			return ErrPeerNameNotFound
+		}
+		eventPort := &EventPort{
+			event: EventListener{
+				Context:   ctx,
+				Peer:      *ep,
+				Identity:  *identity,
+				ChannelId: channelId,
+				Crypto:    c.Crypto,
+				FullBlock: false,
+			},
+		}
+		c.EventPort = eventPort
+		return c.EventPort.newEventListener(response, mspId)
+	*/
 }
 
 // NewFabricClientFromConfig create a new FabricClient from ClientConfig
