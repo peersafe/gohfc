@@ -651,7 +651,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		newPeer.Name = name
 		newPeer.OrgName = p.OrgName
 		peers[name] = newPeer
-		logger.Debugf("Create the endorserpeer connection is successful : %s", name)
+		logger.Infof("Create the endorserpeer connection is successful : %s", name)
 	}
 
 	eventPeers := make(map[string]*Peer)
@@ -662,7 +662,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		}
 		newEventPeer.Name = name
 		eventPeers[name] = newEventPeer
-		logger.Debugf("Create the eventpeer connection is successful : %s", name)
+		logger.Infof("Create the eventpeer connection is successful : %s", name)
 	}
 
 	orderers := make(map[string]*Orderer)
@@ -673,7 +673,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		}
 		newOrderer.Name = name
 		orderers[name] = newOrderer
-		logger.Debugf("Create the orderer connection is successful : %s", name)
+		logger.Infof("Create the orderer connection is successful : %s", name)
 	}
 	client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
 	return &client, nil
