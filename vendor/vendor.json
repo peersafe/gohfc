@@ -674,9 +674,11 @@
 			"revisionTime": "2019-07-02T07:49:39Z"
 		},
 		{
-			"checksumSHA1": "iNE2KX9BQzCptlQC2DdQEVmn4R4=",
+			"checksumSHA1": "LN1V2pZQwKnoDwcsgXpzG4+Vges=",
+			"origin": "github.com/hyperledger/fabric/vendor/golang.org/x/crypto/sha3",
 			"path": "golang.org/x/crypto/sha3",
-			"revision": ""
+			"revision": "2e75c9c484d7b93edb05fd3440273f2a68fce4fc",
+			"revisionTime": "2019-07-02T07:49:39Z"
 		},
 		{
 			"checksumSHA1": "BGm8lKZmvJbf/YOJLeL1rw2WVjA=",
