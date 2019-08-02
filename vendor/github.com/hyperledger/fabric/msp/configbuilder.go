@@ -190,6 +190,10 @@ func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, ID string) 
 	return getMspConfig(dir, ID, sigid)
 }
 
+func GetLocalMspConfigIndependent(dir string, ID string) (*msp.MSPConfig, error) {
+	return getMspConfig(dir, ID, nil)
+}
+
 // GetVerifyingMspConfig returns an MSP config given directory, ID and type
 func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
 	switch mspType {
