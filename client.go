@@ -28,6 +28,7 @@ type FabricClient struct {
 	Mq         Mq
 	Log        Log
 	Event      *EventListener
+	//EventPort  *EventPort
 }
 
 // CreateUpdateChannel read channel config generated (usually) from configtxgen and send it to orderer
@@ -600,6 +601,29 @@ func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Iden
 	return nil
 }
 
+// Listen v 1.0.4 -- port ==> 7053
+func (c *FabricClient) Listen(ctx context.Context, identity *Identity, eventPeer, channelId, mspId string, response chan<- parseBlock.Block) error {
+	return nil
+	/*
+		ep, ok := c.EventPeers[eventPeer]
+		if !ok {
+			return ErrPeerNameNotFound
+		}
+		eventPort := &EventPort{
+			event: EventListener{
+				Context:   ctx,
+				Peer:      *ep,
+				Identity:  *identity,
+				ChannelId: channelId,
+				Crypto:    c.Crypto,
+				FullBlock: false,
+			},
+		}
+		c.EventPort = eventPort
+		return c.EventPort.newEventListener(response, mspId)
+	*/
+}
+
 // NewFabricClientFromConfig create a new FabricClient from ClientConfig
 func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 	var crypto CryptoSuite
@@ -628,7 +652,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		newPeer.Name = name
 		newPeer.OrgName = p.OrgName
 		peers[name] = newPeer
-		logger.Debugf("Create the endorserpeer connection is successful : %s", name)
+		logger.Infof("Create the endorserpeer connection is successful : %s", name)
 	}
 
 	eventPeers := make(map[string]*Peer)
@@ -639,7 +663,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		}
 		newEventPeer.Name = name
 		eventPeers[name] = newEventPeer
-		logger.Debugf("Create the eventpeer connection is successful : %s", name)
+		logger.Infof("Create the eventpeer connection is successful : %s", name)
 	}
 
 	orderers := make(map[string]*Orderer)
@@ -650,7 +674,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		}
 		newOrderer.Name = name
 		orderers[name] = newOrderer
-		logger.Debugf("Create the orderer connection is successful : %s", name)
+		logger.Infof("Create the orderer connection is successful : %s", name)
 	}
 	client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
 	return &client, nil

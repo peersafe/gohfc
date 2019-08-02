@@ -41,6 +41,29 @@ var availableIDgenAlgs = map[string]alg{
 	defaultAlg: {GenerateIDfromTxSHAHash},
 }
 
+func ComputeHash(data []byte) (hash []byte) {
+	var opts bccsp.HashOpts
+	if bccsp.UseGMCrypto {
+		opts = &bccsp.SM3Opts{}
+	} else {
+		opts = &bccsp.SHA256Opts{}
+	}
+	hash, err := factory.GetDefault().Hash(data, opts)
+	if err != nil {
+		panic(fmt.Errorf("Failed computing SHA256/SM3 on [% x]", data))
+	}
+	return
+}
+
+// ComputeSM3 returns SM3 on data
+func ComputeSM3(data []byte) (hash []byte) {
+	hash, err := factory.GetDefault().Hash(data, &bccsp.SM3Opts{})
+	if err != nil {
+		panic(fmt.Errorf("Failed computing SM3 on [% x]", data))
+	}
+	return
+}
+
 // ComputeSHA256 returns SHA2-256 on data
 func ComputeSHA256(data []byte) (hash []byte) {
 	hash, err := factory.GetDefault().Hash(data, &bccsp.SHA256Opts{})

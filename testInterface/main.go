@@ -21,10 +21,7 @@ func main() {
 		logger.Error(err)
 		return
 	}
-	if gohfc.SetLogLevel(gohfc.GetConfigLogLevel(), "testInterface"); err != nil {
-		logger.Error(err)
-		return
-	}
+
 	logger.Debugf("--testInterface main--")
 
 	switch *funcName {
@@ -53,7 +50,7 @@ func main() {
 	case "listenfull":
 		ch, err := gohfc.GetHandler().ListenEventFullBlock("", 3)
 		if err != nil {
-			logger.Error(err)
+			logger.Errorf("ListenEventFullBlock err = %s", err.Error())
 			return
 		}
 
@@ -62,6 +59,7 @@ func main() {
 			case b := <-ch:
 				if b.Error != nil {
 					logger.Errorf("ListenEventFullBlock err = %s", b.Error.Error())
+					continue
 				}
 				logger.Debugf("------listen block num---%d\n", b.Header.Number)
 				if len(b.Transactions) == 0 {

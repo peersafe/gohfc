@@ -403,8 +403,13 @@ func GetProposalHash2(header *common.Header, ccPropPayl []byte) ([]byte, error) 
 		ccPropPayl == nil {
 		return nil, errors.New("nil arguments")
 	}
-
-	hash, err := factory.GetDefault().GetHash(&bccsp.SHA256Opts{})
+	var opts bccsp.HashOpts
+	if bccsp.UseGMCrypto {
+		opts = &bccsp.SM3Opts{}
+	} else {
+		opts = &bccsp.SHA256Opts{}
+	}
+	hash, err := factory.GetDefault().GetHash(opts)
 	if err != nil {
 		return nil, errors.WithMessage(err, "error instantiating hash function")
 	}
@@ -438,8 +443,13 @@ func GetProposalHash1(header *common.Header, ccPropPayl []byte, visibility []byt
 	if err != nil {
 		return nil, err
 	}
-
-	hash2, err := factory.GetDefault().GetHash(&bccsp.SHA256Opts{})
+	var opts bccsp.HashOpts
+	if bccsp.UseGMCrypto {
+		opts = &bccsp.SM3Opts{}
+	} else {
+		opts = &bccsp.SHA256Opts{}
+	}
+	hash2, err := factory.GetDefault().GetHash(opts)
 	if err != nil {
 		return nil, errors.WithMessage(err, "error instantiating hash function")
 	}

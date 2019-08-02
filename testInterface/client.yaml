@@ -19,7 +19,7 @@ peers:
     tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 eventPeers:
   peer01:
-    host: 127.0.0.1:7053
+    host: 127.0.0.1:7051
     domainName: peer0.org1.example.com
     useTLS: true
     tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
@@ -27,7 +27,7 @@ channel:
     mspConfigPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
     localMspId:          Org1MSP
     channelId:           mychannel
-    chaincodeName:       factor
+    chaincodeName:       mycc
     chaincodeVersion:    1.0
     tlsMutual: false
     clientCert: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt

@@ -16,8 +16,6 @@ limitations under the License.
 
 syntax = "proto3";
 
-import "google/protobuf/timestamp.proto";
-
 package protos;
 option java_package = "org.hyperledger.fabric.protos.peer";
 option go_package = "github.com/hyperledger/fabric/protos/peer";
@@ -73,10 +71,6 @@ message ChaincodeSpec {
     ChaincodeID chaincode_id = 2;
     ChaincodeInput input = 3;
     int32 timeout = 4;
-    string mspId = 5;
-    // installed date .
-    google.protobuf.Timestamp createDate = 6;
-    string remark = 7;
 }
 
 // Specify the deployment of a chaincode.

@@ -146,6 +146,14 @@ func SetupBCCSPKeystoreConfig(bccspConfig *factory.FactoryOpts, keystoreDir stri
 			bccspConfig.SwOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: keystoreDir}
 		}
 	}
+	if bccsp.UseGMCrypto {
+		bccspConfig = factory.GetDefaultOpts()
+		if bccspConfig.GmOpts.FileKeystore == nil ||
+			bccspConfig.GmOpts.FileKeystore.KeyStorePath == "" {
+			bccspConfig.GmOpts.Ephemeral = false
+			bccspConfig.GmOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: keystoreDir}
+		}
+	}
 
 	return bccspConfig
 }
@@ -190,10 +198,6 @@ func GetLocalMspConfig(dir string, bccspConfig *factory.FactoryOpts, ID string) 
 	return getMspConfig(dir, ID, sigid)
 }
 
-func GetLocalMspConfigIndependent(dir string, ID string) (*msp.MSPConfig, error) {
-	return getMspConfig(dir, ID, nil)
-}
-
 // GetVerifyingMspConfig returns an MSP config given directory, ID and type
 func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
 	switch mspType {
@@ -204,15 +208,6 @@ func GetVerifyingMspConfig(dir, ID, mspType string) (*msp.MSPConfig, error) {
 	default:
 		return nil, errors.Errorf("unknown MSP type '%s'", mspType)
 	}
-}
-
-func GetVerifyingMspConfigWithOrgRole(dir string, ID string, mspType string, orgRole msp.MSPOrgRole) (*msp.MSPConfig, error) {
-	mspConf, err := GetVerifyingMspConfig(dir, ID, mspType)
-	if err != nil {
-		return nil, err
-	}
-	mspConf.OrgRole = orgRole
-	return mspConf, nil
 }
 
 func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.MSPConfig, error) {
@@ -348,13 +343,18 @@ func getMspConfig(dir string, ID string, sigid *msp.SigningIdentityInfo) (*msp.M
 		IdentityIdentifierHashFunction: bccsp.SHA256,
 	}
 
+	if bccsp.UseGMCrypto {
+		cryptoConfig.SignatureHashFamily = bccsp.SM3
+		cryptoConfig.IdentityIdentifierHashFunction = bccsp.SM3
+	}
+
 	// Compose FabricMSPConfig
 	fmspconf := &msp.FabricMSPConfig{
-		Admins:            admincert,
-		RootCerts:         cacerts,
-		IntermediateCerts: intermediatecerts,
-		SigningIdentity:   sigid,
-		Name:              ID,
+		Admins:                        admincert,
+		RootCerts:                     cacerts,
+		IntermediateCerts:             intermediatecerts,
+		SigningIdentity:               sigid,
+		Name:                          ID,
 		OrganizationalUnitIdentifiers: ouis,
 		RevocationList:                crls,
 		CryptoConfig:                  cryptoConfig,

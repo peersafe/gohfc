@@ -8,7 +8,8 @@ import "errors"
 
 var (
 	ErrInvalidAlgorithmFamily       = errors.New("invalid algorithm family")
-	ErrInvalidAlgorithm             = errors.New("invalid algorithm for ECDSA")
+	ErrInvalidAlgorithm             = errors.New("not support algorithm because the version not sm")
+	ErrSMInvalidAlgorithm             = errors.New("not support algorithm sm")
 	ErrInvalidHash                  = errors.New("invalid hash algorithm")
 	ErrInvalidKeyType               = errors.New("invalid key type is provided")
 	ErrEnrollmentIdMissing          = errors.New("enrollment id is empty")

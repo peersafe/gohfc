@@ -12,15 +12,6 @@ option java_outer_classname = "MspConfigPackage";
 
 package msp;
 
-// MSPOrgRole defines a MSP org's role in CORE, MAIN or NORMAL, it will be used by
-// RolePolicy.
-enum MSPOrgRole {
-    NORMAL = 0;
-    MAIN = 1;
-    CORE = 2;
-    ORDERER = 3;
-}
-
 // MSPConfig collects all the configuration information for
 // an MSP. The Config field should be unmarshalled in a way
 // that depends on the Type
@@ -31,9 +22,6 @@ message MSPConfig {
 
     // Config is MSP dependent configuration info
     bytes config = 2;
-
-    // MSPOrgRole is
-    MSPOrgRole orgRole = 3;
 }
 
 // FabricMSPConfig collects all the configuration information for

@@ -94,9 +94,6 @@ type MSP interface {
 	// involve a byte-by-byte comparison (if the principal is
 	// a serialized identity) or may require MSP validation
 	SatisfiesPrincipal(id Identity, principal *msp.MSPPrincipal) error
-
-	// GetMSPOrgRole returns MSPOrgRole
-	GetMSPOrgRole() msp.MSPOrgRole
 }
 
 // OUIdentifier represents an organizational unit and

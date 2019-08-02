@@ -65,7 +65,6 @@ type idemixmsp struct {
 	name         string
 	revocationPK bccsp.Key
 	epoch        int
-	orgRole      m.MSPOrgRole
 }
 
 // newIdemixMsp creates a new instance of idemixmsp
@@ -334,10 +333,6 @@ func (msp *idemixmsp) Validate(id Identity) error {
 		return errors.Errorf("the supplied identity does not belong to this msp")
 	}
 	return identity.verifyProof()
-}
-
-func (id *idemixmsp) GetMSPOrgRole() m.MSPOrgRole {
-	return id.orgRole
 }
 
 func (id *idemixidentity) verifyProof() error {

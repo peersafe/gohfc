@@ -17,7 +17,6 @@ limitations under the License.
 syntax = "proto3";
 
 import "msp/msp_principal.proto";
-import "msp/msp_config.proto";
 
 option go_package = "github.com/hyperledger/fabric/protos/common";
 option java_package = "org.hyperledger.fabric.protos.common";
@@ -32,7 +31,6 @@ message Policy {
         SIGNATURE = 1;
         MSP = 2;
         IMPLICIT_META = 3;
-        ROLE = 4;
     }
     int32 type = 1; // For outside implementors, consider the first 1000 types reserved, otherwise one of PolicyType
     bytes value = 2;
@@ -78,15 +76,4 @@ message ImplicitMetaPolicy {
     }
     string sub_policy = 1;
     Rule rule = 2;
-}
-
-// RolePolicy is a policy type which depends on the MSPOrgRole in the channel, every MSP has a role in core, main
-// or normal and role defined in MSPCONFIG. Percent is a integer between 0 and 100 which defines how many Signatures
-// of MSP-with-right-roles  defined in policy is valid.
-// 0 needs no signature
-// 100 needs all signature
-// 1~99 needs ceil(percent/100*MSPs)
-message RolePolicy {
-    int32 percent = 1;
-    msp.MSPOrgRole role = 2;
 }
