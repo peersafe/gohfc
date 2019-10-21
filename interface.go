@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"strconv"
 	"strings"
+	"reflect"
 )
 
 //sdk handler
@@ -323,6 +324,9 @@ func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
 
 //解析区块
 func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
+	if reflect.ValueOf(block).IsNil() || block == nil || block.XXX_Size() == 0{
+		return nil, fmt.Errorf("the block not exist")
+	}
 	blockObj := parseBlock.ParseBlock(block, 0)
 	return &blockObj, nil
 }
