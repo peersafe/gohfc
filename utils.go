@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -12,7 +11,6 @@ import (
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
-	"github.com/op/go-logging"
 )
 
 func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
@@ -35,26 +33,6 @@ func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCo
 	}
 
 	return &chaincode, nil
-}
-
-//设置log级别
-func SetLogLevel(level, name string) error {
-	format := logging.MustStringFormatter("%{shortfile} %{time:2006-01-02 15:04:05.000} [%{module}] %{level:.4s} : %{message}")
-	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
-	logLevel, err := logging.LogLevel(level)
-	if err != nil {
-		return err
-	}
-	logging.SetBackend(backendFormatter).SetLevel(logLevel, name)
-	logger.Debugf("SetLogLevel level: %s, levelName: %s\n", level, name)
-	return nil
-}
-
-func GetLogLevel(name string) string {
-	level := logging.GetLevel(name).String()
-	logger.Debugf("GetLogLevel level: %s, LogModule: %s\n", level, name)
-	return level
 }
 
 /*

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/common/flogging"
 	ledgerUtil "github.com/hyperledger/fabric/core/ledger/util"
 	cb "github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/ledger/rwset"
@@ -16,10 +17,9 @@ import (
 	ab "github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
-	"github.com/op/go-logging"
 )
 
-var parseBlockLogger = logging.MustGetLogger("sdk")
+var parseBlockLogger = flogging.MustGetLogger("gohfc-block")
 
 func deserializeIdentity(serializedID []byte) (*x509.Certificate, error) {
 	sId := &pbmsp.SerializedIdentity{}

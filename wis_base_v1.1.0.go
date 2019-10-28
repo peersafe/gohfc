@@ -9,7 +9,7 @@ import (
 
 	"github.com/peersafe/gohfc/parseBlock"
 
-	"github.com/op/go-logging"
+	"github.com/hyperledger/fabric/common/flogging"
 )
 
 type WisHandler struct {
@@ -29,7 +29,7 @@ type WisHandler struct {
 	FaCli            *FabricClient
 }
 
-var wis_logger = logging.MustGetLogger("event")
+var wis_logger = flogging.MustGetLogger("gohfc-wisbase")
 
 func (w *WisHandler) Query() (*QueryResponse, error) {
 	// 初始化
@@ -131,12 +131,6 @@ func (w *WisHandler) Listen(response chan<- parseBlock.Block) error {
 */
 
 func (w *WisHandler) Init() error {
-	format := logging.MustStringFormatter("%{shortfile} %{time:2006-01-02 15:04:05.000} [%{module}] %{level:.4s} : %{message}")
-	backend := logging.NewLogBackend(os.Stderr, "", 0)
-	backendFormatter := logging.NewBackendFormatter(backend, format)
-
-	logging.SetBackend(backendFormatter).SetLevel(logging.DEBUG, "main")
-
 	fabricClient := &FabricClient{}
 	w.FaCli = fabricClient
 

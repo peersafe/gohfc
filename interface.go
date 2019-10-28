@@ -9,9 +9,9 @@ import (
 	"github.com/peersafe/gohfc/parseBlock"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/common/flogging"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/peer"
-	"github.com/op/go-logging"
 	"google.golang.org/grpc/connectivity"
 )
 
@@ -22,7 +22,7 @@ type sdkHandler struct {
 }
 
 var (
-	logger          = logging.MustGetLogger("sdk")
+	logger          = flogging.MustGetLogger("gohfc-sdk")
 	handler         sdkHandler
 	orgPeerMap      = make(map[string][]string)
 	orderNames      []string
@@ -37,10 +37,6 @@ func InitSDK(configPath string) error {
 	clientConfig, err := NewClientConfig(configPath)
 	if err != nil {
 		return err
-	}
-
-	if err := SetLogLevel(clientConfig.LogLevel, "sdk"); err != nil {
-		return fmt.Errorf("setLogLevel err: %s\n", err.Error())
 	}
 	logger.Debugf("************InitSDK************by: %s", configPath)
 
@@ -97,12 +93,7 @@ func GetHandler() *sdkHandler {
 	return &handler
 }
 
-// GetHandler get sdk handler
-func GetConfigLogLevel() string {
-	return handler.client.Log.LogLevel
-}
-
-// GetHandler get sdk handler
+// GetChaincodeName get the channel's chaincode name
 func GetChaincodeName() string {
 	return handler.client.Channel.ChaincodeName
 }
