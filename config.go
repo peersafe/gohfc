@@ -18,7 +18,6 @@ type ClientConfig struct {
 	EventPeers     map[string]PeerConfig       `yaml:"eventPeers"`
 	DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
 	ChannelConfig  `yaml:"channel"`
-	Mq             `yaml:"mq"`
 	Log            `yaml:"log"`
 }
 
@@ -36,11 +35,6 @@ type ChannelConfig struct {
 type ChaincodePolicy struct {
 	Orgs []string `yaml:"orgs"`
 	Rule string   `yaml:"rule"`
-}
-
-type Mq struct {
-	MqAddress []string `yaml:"mqAddress"`
-	QueueName string   `yaml:"queueName"`
 }
 
 type Log struct {

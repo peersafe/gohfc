@@ -25,7 +25,6 @@ type FabricClient struct {
 	Orderers   map[string]*Orderer
 	EventPeers map[string]*Peer
 	Channel    ChannelConfig
-	Mq         Mq
 	Log        Log
 	Event      *EventListener
 	//EventPort  *EventPort
@@ -704,7 +703,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
 
 	*/
-	client := FabricClient{Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
+	client := FabricClient{Crypto: crypto, Channel: config.ChannelConfig, Log: config.Log}
 	return &client, nil
 }
 
