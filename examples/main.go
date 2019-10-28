@@ -1,19 +1,19 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/CognitionFoundry/gohfc"
+	"math/rand"
 	"os"
 
-	"math/rand"
-	"context"
+	"github.com/peersafe/gohfc"
+	"github.com/peersafe/gohfc/parseBlock"
 )
 
 const ADM_PK = "/path/to/admin/cert.pem"
 const ADM_SK = "/path/to/admin/admin.key"
 
 func main() {
-
 	// initialize Fabric client
 	c, err := gohfc.NewFabricClient("./client.yaml")
 	if err != nil {
@@ -81,9 +81,9 @@ func main() {
 }
 
 func eventFullBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
-	ch := make(chan gohfc.EventBlockResponse)
+	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := client.ListenForFullBlock(ctx, *identity, "peer0", "testchannel", ch)
+	err := client.ListenForFullBlock(ctx, *identity, 0, "peer0", "testchannel", ch)
 	if err != nil {
 		fmt.Println(err)
 		cancel()
@@ -95,9 +95,9 @@ func eventFullBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
 
 func eventFilteredBlock(client *gohfc.FabricClient, identity *gohfc.Identity) {
 
-	ch := make(chan gohfc.EventBlockResponse)
+	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := client.ListenForFullBlock(ctx, *identity, "peer0", "testchannel", ch)
+	err := client.ListenForFullBlock(ctx, *identity, 0, "peer0", "testchannel", ch)
 	if err != nil {
 		fmt.Println(err)
 		cancel()
@@ -136,7 +136,7 @@ func query(client *gohfc.FabricClient, identity *gohfc.Identity) {
 		Args:      []string{"query", "a"},
 	}
 
-	result, err := client.Query(*identity, *chaincode, []string{"peer01"})
+	result, err := client.Query(*identity, *chaincode)
 	if err != nil {
 		fmt.Print(err)
 		os.Exit(2)
@@ -468,7 +468,7 @@ func modifyIdentity(ca *gohfc.FabricCAClient, identity *gohfc.Identity) {
 				Value: "new value 1",
 			},
 		},
-		Secret: "new password",}
+		Secret: "new password"}
 	resp, err := ca.ModifyIdentity(identity, req)
 	if err != nil {
 		fmt.Println(err)

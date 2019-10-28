@@ -5,14 +5,17 @@ License: Apache License Version 2.0
 package gohfc
 
 import (
-	"google.golang.org/grpc"
+	"context"
+	"crypto/x509"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/orderer"
-	"context"
-	"fmt"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"github.com/golang/protobuf/proto"
-	"time"
 	"google.golang.org/grpc/keepalive"
 )
 
@@ -30,14 +33,6 @@ const timeout = 5
 
 // Broadcast Broadcast envelope to orderer for execution.
 func (o *Orderer) Broadcast(envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
-	if o.con == nil {
-		c, err := grpc.Dial(o.Uri, o.Opts...)
-		if err != nil {
-			return nil, fmt.Errorf("cannot connect to orderer: %s err is: %v", o.Name, err)
-		}
-		o.con = c
-		o.client = orderer.NewAtomicBroadcastClient(o.con)
-	}
 	bcc, err := o.client.Broadcast(context.Background())
 	if err != nil {
 		return nil, err
@@ -101,7 +96,6 @@ func (o *Orderer) Deliver(envelope *common.Envelope) (*common.Block, error) {
 }
 
 func (o *Orderer) getGenesisBlock(identity Identity, crypto CryptoSuite, channelId string) (*common.Block, error) {
-
 	seekInfo := &orderer.SeekInfo{
 		Start:    &orderer.SeekPosition{Type: &orderer.SeekPosition_Specified{Specified: &orderer.SeekSpecified{Number: 0}}},
 		Stop:     &orderer.SeekPosition{Type: &orderer.SeekPosition_Specified{Specified: &orderer.SeekSpecified{Number: 0}}},
@@ -116,7 +110,7 @@ func (o *Orderer) getGenesisBlock(identity Identity, crypto CryptoSuite, channel
 	if err != nil {
 		return nil, err
 	}
-	txId, err := newTransactionId(creator)
+	txId, err := newTransactionId(creator, crypto)
 	if err != nil {
 		return nil, err
 	}
@@ -144,11 +138,19 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 	o := Orderer{Uri: conf.Host, caPath: conf.TlsPath}
 	if !conf.UseTLS {
 		o.Opts = []grpc.DialOption{grpc.WithInsecure()}
-	} else if o.caPath != "" {
-		creds, err := credentials.NewClientTLSFromFile(o.caPath, "")
-		if err != nil {
-			return nil, fmt.Errorf("cannot read orderer %s credentials err is: %v", o.Name, err)
+	} else {
+		//creds, err := credentials.NewClientTLSFromFile(o.caPath, conf.DomainName)
+		//if err != nil {
+		//	return nil, fmt.Errorf("cannot read orderer %s credentials err is: %v", o.Name, err)
+		//}
+		certPool := x509.NewCertPool()
+		if isCorrect := certPool.AppendCertsFromPEM(conf.TLSInfo[0]); !isCorrect {
+			logger.Errorf("append certs failed for %s", conf.Host)
+			return nil, errors.New("append certs failed")
 		}
+
+		creds := credentials.NewClientTLSFromCert(certPool, "")
+
 		o.Opts = append(o.Opts, grpc.WithTransportCredentials(creds))
 	}
 	o.Opts = append(o.Opts,
@@ -158,8 +160,15 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 			PermitWithoutStream: true,
 		}),
 		grpc.WithBlock(),
+		grpc.WithTimeout(10*time.Second),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
 			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
+	c, err := grpc.Dial(o.Uri, o.Opts...)
+	if err != nil {
+		return nil, err
+	}
+	o.con = c
+	o.client = orderer.NewAtomicBroadcastClient(o.con)
 	return &o, nil
 }

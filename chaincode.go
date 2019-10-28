@@ -5,20 +5,19 @@ License: Apache License Version 2.0
 package gohfc
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/protos/peer"
-	"github.com/hyperledger/fabric/protos/common"
-	"path/filepath"
-	"strings"
-	"os"
-	"io"
+	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"archive/tar"
-	"path"
-	"github.com/golang/protobuf/ptypes/timestamp"
-	"time"
 	"fmt"
+	"io"
+	"os"
+	"path"
+	"path/filepath"
+	"strings"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/peer"
 )
 
 type ChainCodeType int32
@@ -33,8 +32,8 @@ const (
 
 // ChainCode the fields necessary to execute operation over chaincode.
 type ChainCode struct {
-	ChannelId    string
-	Name         string
+	ChannelId    string // channel name
+	Name         string // chaincode name
 	Version      string
 	Type         ChainCodeType
 	Args         []string
@@ -43,7 +42,7 @@ type ChainCode struct {
 	rawArgs      [][]byte
 }
 
-func (c *ChainCode) toChainCodeArgs() ([][]byte) {
+func (c *ChainCode) toChainCodeArgs() [][]byte {
 	if len(c.rawArgs) > 0 {
 		return c.rawArgs
 	}
@@ -89,8 +88,7 @@ type ChainCodesResponse struct {
 
 // createInstallProposal read chaincode from provided source and namespace, pack it and generate install proposal
 // transaction. Transaction is not send from this func
-func createInstallProposal(identity Identity, req *InstallRequest) (*transactionProposal, error) {
-
+func createInstallProposal(identity Identity, req *InstallRequest, crypto CryptoSuite) (*transactionProposal, error) {
 	var packageBytes []byte
 	var err error
 
@@ -103,22 +101,22 @@ func createInstallProposal(identity Identity, req *InstallRequest) (*transaction
 	default:
 		return nil, ErrUnsupportedChaincodeType
 	}
-	now := time.Now()
+	//now := time.Now()
 	depSpec, err := proto.Marshal(&peer.ChaincodeDeploymentSpec{
 		ChaincodeSpec: &peer.ChaincodeSpec{
 			ChaincodeId: &peer.ChaincodeID{Name: req.ChainCodeName, Path: req.Namespace, Version: req.ChainCodeVersion},
 			Type:        peer.ChaincodeSpec_Type(req.ChainCodeType),
 		},
-		CodePackage:   packageBytes,
-		EffectiveDate: &timestamp.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())},
+		CodePackage: packageBytes,
+		//EffectiveDate: &timestamp.Timestamp{Seconds: int64(now.Second()), Nanos: int32(now.Nanosecond())},
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	spec, err := chainCodeInvocationSpec(ChainCode{Type: req.ChainCodeType,
-		Name: LSCC,
-		Args: []string{"install"},
+		Name:     LSCC,
+		Args:     []string{"install"},
 		ArgBytes: depSpec,
 	})
 
@@ -126,7 +124,7 @@ func createInstallProposal(identity Identity, req *InstallRequest) (*transaction
 	if err != nil {
 		return nil, err
 	}
-	txId, err := newTransactionId(creator)
+	txId, err := newTransactionId(creator, crypto)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +163,7 @@ func createInstallProposal(identity Identity, req *InstallRequest) (*transaction
 
 // createInstantiateProposal creates instantiate proposal transaction for already installed chaincode.
 // transaction is not send from this func
-func createInstantiateProposal(identity Identity, req *ChainCode, operation string, collectionConfig []byte) (*transactionProposal, error) {
+func createInstantiateProposal(identity Identity, req *ChainCode, operation string, collectionConfig []byte, crypto CryptoSuite) (*transactionProposal, error) {
 	if operation != "deploy" && operation != "upgrade" {
 		return nil, fmt.Errorf("install proposall accept only 'deploy' and 'upgrade' operations")
 	}
@@ -212,7 +210,7 @@ func createInstantiateProposal(identity Identity, req *ChainCode, operation stri
 	if err != nil {
 		return nil, err
 	}
-	txId, err := newTransactionId(creator)
+	txId, err := newTransactionId(creator, crypto)
 	if err != nil {
 		return nil, err
 	}
@@ -239,13 +237,12 @@ func createInstantiateProposal(identity Identity, req *ChainCode, operation stri
 	if err != nil {
 		return nil, err
 	}
-	return &transactionProposal{proposal: proposal, transactionId: txId.TransactionId}, nil
 
+	return &transactionProposal{proposal: proposal, transactionId: txId.TransactionId}, nil
 }
 
 // packGolangCC read provided src expecting Golang source code, repackage it in provided namespace, and compress it
 func packGolangCC(namespace, source string, libs []ChaincodeLibrary) ([]byte, error) {
-
 	twBuf := new(bytes.Buffer)
 	tw := tar.NewWriter(twBuf)
 

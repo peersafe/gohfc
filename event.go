@@ -6,15 +6,18 @@ package gohfc
 
 import (
 	"context"
-	"google.golang.org/grpc"
-	"time"
 	"fmt"
-	"github.com/hyperledger/fabric/protos/orderer"
 	"math"
-	"github.com/hyperledger/fabric/protos/common"
-	"github.com/golang/protobuf/ptypes/timestamp"
+	"time"
+
+	"github.com/peersafe/gohfc/parseBlock"
+
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -72,10 +75,7 @@ type EventBlockResponseTransactionEvent struct {
 }
 
 func (e *EventListener) newConnection() error {
-
-
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, e.Peer.Uri, e.Peer.Opts...)
 	if err != nil {
@@ -99,6 +99,10 @@ func (e *EventListener) newConnection() error {
 		return fmt.Errorf("invalid listener type provided")
 	}
 	return nil
+}
+
+func (e *EventListener) DisConnect() {
+	e.connection.Close()
 }
 
 func (e *EventListener) SeekNewest() error {
@@ -151,26 +155,26 @@ func (e *EventListener) SeekRange(start, end uint64) error {
 	return e.client.Send(seek)
 }
 
-func (e *EventListener) Listen(response chan<- EventBlockResponse) {
+func (e *EventListener) Listen(response chan<- parseBlock.Block, filterResponse chan<- EventBlockResponse) {
 	go func() {
 		for {
 			msg, err := e.client.Recv()
 			if err != nil {
-				response <- EventBlockResponse{Error: fmt.Errorf("error receiving data:%v", err)}
+				response <- parseBlock.Block{Error: err}
 				return
 			}
+			size := uint64(len(msg.String()))
 			switch t := msg.Type.(type) {
 			case *peer.DeliverResponse_Block:
-				response <- *e.parseFullBlock(t, e.FullBlock)
+				response <- parseBlock.ParseBlock(msg.GetBlock(), size)
 			case *peer.DeliverResponse_FilteredBlock:
-				response <- *e.parseFilteredBlock(t, e.FullBlock)
+				filterResponse <- *e.parseFilteredBlock(t, e.FullBlock)
 			}
 		}
 	}()
 }
 
-func (e *EventListener) parseFilteredBlock(block *peer.DeliverResponse_FilteredBlock, fullBlock bool) (*EventBlockResponse) {
-
+func (e *EventListener) parseFilteredBlock(block *peer.DeliverResponse_FilteredBlock, fullBlock bool) *EventBlockResponse {
 	response := &EventBlockResponse{
 		ChannelId:    block.FilteredBlock.ChannelId,
 		BlockHeight:  block.FilteredBlock.Number,
@@ -214,8 +218,7 @@ func (e *EventListener) parseFilteredBlock(block *peer.DeliverResponse_FilteredB
 	return response
 }
 
-func (e *EventListener) parseFullBlock(block *peer.DeliverResponse_Block, fullBlock bool) (*EventBlockResponse) {
-
+func (e *EventListener) parseFullBlock(block *peer.DeliverResponse_Block, fullBlock bool) *EventBlockResponse {
 	response := &EventBlockResponse{
 		BlockHeight: block.Block.Header.Number,
 	}
@@ -301,7 +304,6 @@ func (e *EventListener) parseFullBlock(block *peer.DeliverResponse_Block, fullBl
 }
 
 func (e *EventListener) createSeekEnvelope(start *orderer.SeekPosition, stop *orderer.SeekPosition) (*common.Envelope, error) {
-
 	marshaledIdentity, err := marshalProtoIdentity(e.Identity)
 	if err != nil {
 		return nil, err
@@ -318,9 +320,9 @@ func (e *EventListener) createSeekEnvelope(start *orderer.SeekPosition, stop *or
 			Seconds: time.Now().Unix(),
 			Nanos:   0,
 		},
-		ChannelId: e.ChannelId,
-		Epoch:     0,
-		// TlsCertHash:[]
+		ChannelId:   e.ChannelId,
+		Epoch:       0,
+		TlsCertHash: e.Peer.tlsCertHash,
 	})
 	if err != nil {
 		return nil, err
@@ -383,3 +385,95 @@ func NewEventListener(ctx context.Context, crypto CryptoSuite, identity Identity
 
 	return &listener, nil
 }
+
+/*
+type EventPort struct {
+	event  EventListener
+	client peer.Events_ChatClient
+}
+
+func (e *EventPort) connect(ctx context.Context, p *Peer) error {
+	p.Opts = append(p.Opts, grpc.WithBlock(), grpc.WithTimeout(5*time.Second),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
+			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
+	conn, err := grpc.Dial(p.Uri, p.Opts...)
+	if err != nil {
+		return err
+	}
+	e.event.connection = conn
+	event := peer.NewEventsClient(conn)
+	cl, err := event.Chat(ctx)
+	if err != nil {
+		return err
+	}
+	e.client = cl
+	return nil
+}
+
+func (e *EventPort) register(mspId string, identity *Identity, crypto CryptoSuite) error {
+	creator, err := proto.Marshal(&msp.SerializedIdentity{
+		Mspid:   mspId,
+		IdBytes: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: identity.Certificate.Raw})})
+	if err != nil {
+		return err
+	}
+
+	interest := &peer.Event{Event: &peer.Event_Register{Register: &peer.Register{
+		Events: []*peer.Interest{
+			{EventType: peer.EventType_BLOCK},
+		}}}, Creator: creator}
+	evtBytes, err := proto.Marshal(interest)
+	if err != nil {
+		return err
+	}
+
+	sb, err := crypto.Sign(evtBytes, identity.PrivateKey)
+	if err != nil {
+		return err
+	}
+	sigEvent := peer.SignedEvent{EventBytes: evtBytes, Signature: sb}
+	if err = e.client.Send(&sigEvent); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (e *EventPort) Disconnect() {
+	e.client.CloseSend()
+	e.event.connection.Close()
+}
+
+func (e *EventPort) readBlock(response chan<- parseBlock.Block) {
+	for {
+		in, err := e.client.Recv()
+		if err == io.EOF {
+			e.Disconnect()
+			return
+		}
+		if err != nil {
+			response <- parseBlock.Block{Error: err}
+			e.Disconnect()
+			return
+		}
+
+		switch in.Event.(type) {
+		case *peer.Event_Block:
+			size := uint64((len(in.String())))
+			response <- parseBlock.ParseBlock(in.GetBlock(), size)
+		}
+	}
+}
+
+func (e *EventPort) newEventListener(response chan<- parseBlock.Block, mspId string) error {
+	err := e.connect(e.event.Context, &e.event.Peer)
+	if err != nil {
+		return err
+	}
+	err = e.register(mspId, &e.event.Identity, e.event.Crypto)
+	if err != nil {
+		return err
+	}
+	go e.readBlock(response)
+	return nil
+}
+*/

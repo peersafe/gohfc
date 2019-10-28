@@ -1,3 +1,5 @@
+// +build !gm
+
 /*
 Copyright: Cognition Foundry. All Rights Reserved.
 License: Apache License Version 2.0
@@ -32,6 +34,7 @@ type CryptoSuite interface {
 	Sign(msg []byte, key interface{}) ([]byte, error)
 	// Hash computes Hash value of provided data. Hash function will be different in different crypto implementations.
 	Hash(data []byte) []byte
+	GetFamily() string
 }
 
 var (
@@ -50,6 +53,7 @@ type ECCryptSuite struct {
 	sigAlgorithm x509.SignatureAlgorithm
 	key          *ecdsa.PrivateKey
 	hashFunction func() hash.Hash
+	family       string
 }
 
 type eCDSASignature struct {
@@ -144,6 +148,10 @@ func (c *ECCryptSuite) Hash(data []byte) []byte {
 	return h.Sum(nil)
 }
 
+func (c *ECCryptSuite) GetFamily() string {
+	return c.family
+}
+
 // NewECCryptSuite creates new Elliptic curve crypto suite from config
 func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 	var suite *ECCryptSuite
@@ -159,7 +167,6 @@ func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 	}
 
 	switch config.Hash {
-
 	case "SHA2-256":
 		suite.hashFunction = sha256.New
 	case "SHA2-384":
@@ -171,5 +178,6 @@ func NewECCryptSuiteFromConfig(config CryptoConfig) (CryptoSuite, error) {
 	default:
 		return nil, ErrInvalidHash
 	}
+	suite.family = config.Family
 	return suite, nil
 }

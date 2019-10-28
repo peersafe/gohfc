@@ -5,17 +5,17 @@ License: Apache License Version 2.0
 package gohfc
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/protos/msp"
-	"encoding/pem"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
-	"github.com/hyperledger/fabric/protos/common"
-	"github.com/golang/protobuf/ptypes"
-	"time"
-	"github.com/hyperledger/fabric/protos/peer"
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/pem"
+	"time"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/msp"
+	"github.com/hyperledger/fabric/protos/peer"
 )
 
 // TransactionId represents transaction identifier. TransactionId is the unique transaction number.
@@ -80,7 +80,7 @@ func signatureHeader(creator []byte, tx *TransactionId) ([]byte, error) {
 }
 
 // header creates new common.header from signature header and channel header
-func header(signatureHeader, channelHeader []byte) (*common.Header) {
+func header(signatureHeader, channelHeader []byte) *common.Header {
 	header := new(common.Header)
 	header.SignatureHeader = signatureHeader
 	header.ChannelHeader = channelHeader
@@ -124,12 +124,12 @@ func payload(header *common.Header, data []byte) ([]byte, error) {
 }
 
 // newTransactionId generate new transaction id from creator and random bytes
-func newTransactionId(creator []byte) (*TransactionId, error) {
+func newTransactionId(creator []byte, crypto CryptoSuite) (*TransactionId, error) {
 	nonce, err := generateRandomBytes(24)
 	if err != nil {
 		return nil, err
 	}
-	id := generateTxId(nonce, creator)
+	id := generateTxId(nonce, creator, crypto)
 	return &TransactionId{Creator: creator, Nonce: nonce, TransactionId: id}, nil
 }
 
@@ -144,14 +144,11 @@ func generateRandomBytes(len int) ([]byte, error) {
 }
 
 // sha256 is hardcoded in hyperledger
-func generateTxId(nonce, creator []byte) string {
-	f := sha256.New()
-	f.Write(append(nonce, creator...))
-	return hex.EncodeToString(f.Sum(nil))
+func generateTxId(nonce, creator []byte, crypto CryptoSuite) string {
+	return hex.EncodeToString(crypto.Hash(append(nonce, creator...)))
 }
 
 func chainCodeInvocationSpec(chainCode ChainCode) ([]byte, error) {
-
 	invocation := &peer.ChaincodeInvocationSpec{
 		ChaincodeSpec: &peer.ChaincodeSpec{
 			Type:        peer.ChaincodeSpec_Type(chainCode.Type),
@@ -203,20 +200,55 @@ func sendToPeers(peers []*Peer, prop *peer.SignedProposal) []*PeerResponse {
 	return resp
 }
 
-func createTransactionProposal(identity Identity, cc ChainCode) (*transactionProposal, error) {
-	spec, err := chainCodeInvocationSpec(cc)
-	if err != nil {
-		return nil, err
+func sendToEndorserGroup(prop *peer.SignedProposal, channel string, chaincode string) []*PeerResponse {
+	egs := endorserGroups[channel+chaincode]
+	targetEG := generateRangeNum(0, len(egs))
+	eg := egs[targetEG]
+	num := len(eg)
+	ch := make(chan *PeerResponse)
+	resp := make([]*PeerResponse, 0, num)
+	for _, g := range eg {
+		peers := getPeerHandleByGroup(g)
+		p := peers[generateRangeNum(0, len(peers))]
+		go p.Endorse(ch, prop)
 	}
+	for i := 0; i < num; i++ {
+		resp = append(resp, <-ch)
+	}
+	close(ch)
+	return resp
+}
+
+func sendToOneEndorserPeer(prop *peer.SignedProposal, channel string, chaincode string) *PeerResponse {
+	ch := make(chan *PeerResponse)
+
+	egs := endorserGroups[channel+chaincode]
+	targetEG := generateRangeNum(0, len(egs))
+	eg := egs[targetEG]
+	peers := getPeerHandleByGroup(eg[generateRangeNum(0, len(eg))])
+	p := peers[generateRangeNum(0, len(peers))]
+	go p.Endorse(ch, prop)
+	resp := <-ch
+	close(ch)
+	return resp
+}
+
+func createTransactionProposal(identity Identity, cc ChainCode, crypto CryptoSuite) (*transactionProposal, error) {
 	creator, err := marshalProtoIdentity(identity)
 	if err != nil {
 		return nil, err
 	}
-	txId, err := newTransactionId(creator)
+	txId, err := newTransactionId(creator, crypto)
 	if err != nil {
 		return nil, err
 	}
 
+	SetArgsTxid(txId.TransactionId, &cc.Args)
+
+	spec, err := chainCodeInvocationSpec(cc)
+	if err != nil {
+		return nil, err
+	}
 	extension := &peer.ChaincodeHeaderExtension{ChaincodeId: &peer.ChaincodeID{Name: cc.Name}}
 	channelHeader, err := channelHeader(common.HeaderType_ENDORSER_TRANSACTION, txId, cc.ChannelId, 0, extension)
 	if err != nil {

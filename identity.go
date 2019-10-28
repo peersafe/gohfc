@@ -10,7 +10,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 )
 
 // Identity is participant public and private key
@@ -27,7 +30,6 @@ func (i *Identity) EnrollmentId() string {
 
 // EnrollmentId get enrollment id from certificate
 func (i *Identity) ToPem() ([]byte, []byte, error) {
-
 	switch i.PrivateKey.(type) {
 	case *ecdsa.PrivateKey:
 		cast := i.PrivateKey.(*ecdsa.PrivateKey)
@@ -46,7 +48,6 @@ func (i *Identity) ToPem() ([]byte, []byte, error) {
 
 // MarshalIdentity marshal identity to string
 func MarshalIdentity(i *Identity) (string, error) {
-
 	var pk, cert string
 	switch i.PrivateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -140,4 +141,36 @@ func LoadCertFromFile(pk, sk string) (*Identity, error) {
 		return nil, err
 	}
 	return &Identity{Certificate: crt, PrivateKey: key}, nil
+}
+
+func FindCertAndKeyFile(msppath string) (string, string, error) {
+	findCert := func(path string) (string, error) {
+		list, err := ioutil.ReadDir(path)
+		if err != nil {
+			return "", err
+		}
+		var file os.FileInfo
+		for _, item := range list {
+			if !item.IsDir() {
+				if file == nil {
+					file = item
+				} else if item.ModTime().After(file.ModTime()) {
+					file = item
+				}
+			}
+		}
+		if file == nil {
+			return "", fmt.Errorf("have't file in the %s", path)
+		}
+		return filepath.Join(path, file.Name()), nil
+	}
+	prikey, err := findCert(filepath.Join(msppath, "keystore"))
+	if err != nil {
+		return "", "", err
+	}
+	cert, err := findCert(filepath.Join(msppath, "signcerts"))
+	if err != nil {
+		return "", "", err
+	}
+	return cert, prikey, nil
 }

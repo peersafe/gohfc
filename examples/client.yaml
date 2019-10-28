@@ -1,36 +1,44 @@
----
 crypto:
-  family: ecdsa
-  algorithm: P256-SHA256
-  hash: SHA2-256
+  family: gm
+  algorithm: P256SM2
+  hash: SM3
+#   family: ecdsa
+#   algorithm: P256-SHA256
+#   hash: SHA2-256
 orderers:
   orderer0:
-    host: orderer0.example.com:7050
-    useTLS: false
-    tlsPath: /path/to/tls/server.pem
-  orderer1:
-    host: orderer0.example.com:7048
-    useTLS: false
-    tlsPath: /path/to/tls/server.pem
+    host: 127.0.0.1:7050
+    domainName: orderer.example.com
+    useTLS: true
+    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
 peers:
   peer01:
-    host: peer0.example.com:7051
-    useTLS: false
-    tlsPath: /path/to/tls/server.pem
-  peer11:
-    host: peer1.example.com:8051
-    useTLS: false
-    tlsPath: /path/to/tls/server.pem
-  peer02:
-    host: peer0.example.com:9051
-    useTLS: false
-    tlsPath: /path/to/tls/server.pem
-  peer12:
-      host: peer1.example.com:10051
-      useTLS: false
-      tlsPath: /path/to/tls/server.pem
+    host: 127.0.0.1:7051
+    domainName: peer0.org1.example.com
+    useTLS: true
+    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsMutual: true
+    clientCert: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+    clientKey: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
 eventPeers:
-  peer0:
-    host: peer0.example.com:7051
-    useTLS: false
-    tlsPath: /path/to/tls/server.pem
+  peer01:
+    host: 127.0.0.1:7051
+    domainName: peer0.org1.example.com
+    useTLS: true
+    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsMutual: true
+    clientCert: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+    clientKey: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
+channel:
+    mspConfigPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+    localMspId:          Org1MSP
+    channelId:           mychannel
+    chaincodeName:       factor
+    chaincodeVersion:    1.0
+mq:
+    mqAddress:
+#      - "amqp://xn:123456@10.10.255.103:5672/"
+      - "amqp://guest:guest@localhost:5672/"
+    queueName: "assetQueue"
+log:
+    logLevel: DEBUG
