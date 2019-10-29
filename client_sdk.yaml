@@ -1,0 +1,74 @@
+---
+crypto:
+  family: ecdsa
+  algorithm: P256-SHA256
+  hash: SHA2-256
+orderers:
+  orderer0:
+    host: orderer.example.com:7050
+    useTLS: true
+    tlsPath: ./crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+peers:
+  peer01:
+    host: peer0.org1.example.com:7051
+    orgName: org1
+    useTLS: true
+    tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+  peer11:
+    host: peer1.org1.example.com:8051
+    orgName: org1
+    useTLS: true
+    tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer1.org1.example.com/tls/server.crt
+  #peer02:
+  #  host: peer0.org2.example.com:9051
+  #  orgName: org2
+  #  useTLS: true
+  #  tlsPath: ./crypto-config/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/server.crt
+discoveryPeers:
+  peer01:
+    host: peer0.org1.example.com:7051
+    orgName: org1
+    useTLS: true
+    tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+eventPeers:
+  peer0:
+    host: peer0.org1.example.com:7051
+    orgName: org1
+    useTLS: true
+    tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+channel:
+  mspConfigPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+  localMspId:          Org1MSP
+  channelId:           mychannel
+  chaincodeName:
+    - factor
+    - factor2
+ #   mychannel2:
+ #     - factor
+#    chaincodeVersion:    1.0
+#    chaincodePolicy:
+#      orgs:
+#        - org1
+#        - org2
+#      rule: and
+  clientCert: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
+  clientKey: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.key
+mq:
+    mqEnable: false
+    mqAddress:
+      - "amqp://guest:guest@localhost:5672/"
+    queueName: "TradeQueue"
+user:
+    id: bankA
+apiserver:
+    authorization:
+      user: "123456"
+      root: "root"
+    listenport: 5984
+    isHttps: false
+    probe_order: "127.0.0.1 7050"
+other:
+    check_time: 2m
+log:
+  logLevel: DEBUG
+  logModelName: apiserver

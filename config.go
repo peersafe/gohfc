@@ -17,16 +17,16 @@ type ClientConfig struct {
 	Peers          map[string]PeerConfig       `yaml:"peers"`
 	EventPeers     map[string]PeerConfig       `yaml:"eventPeers"`
 	DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
-	ChannelConfig  `yaml:"channel"`
+	ChannelConfig  ChannelConfig  `yaml:"channel"`
 }
 
 type ChannelConfig struct {
 	MspConfigPath    string `yaml:"mspConfigPath"`
 	LocalMspId       string `yaml:"localMspId"`
 	ChannelId        string `yaml:"channelId"`
-	ChaincodeName    string `yaml:"chaincodeName"`
-	ChaincodeVersion string `yaml:"chaincodeVersion"`
-	ChaincodePolicy  `yaml:"chaincodePolicy"`
+	ChaincodeName    []string `yaml:"chaincodeName"`
+//	ChaincodeVersion string `yaml:"chaincodeVersion"`
+//	ChaincodePolicy  `yaml:"chaincodePolicy"`
 	ClientCert       string `yaml:"clientCert"`
 	ClientKey        string `yaml:"clientKey"`
 }

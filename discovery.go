@@ -141,6 +141,8 @@ func DiscoveryChannelConfig(channel string) (*discovery.ConfigResult, error) {
 }
 
 func DiscoveryEndorsePolicy(channel string, chaincodes *[]string, collections *map[string]string) ([]*endorsermentDescriptor, error) {
+	var ci []*discovery.ChaincodeInterest
+
 	ccAndCol := &chaincodesAndCollections{
 		Chaincodes:  chaincodes,
 		Collections: collections,
@@ -150,16 +152,23 @@ func DiscoveryEndorsePolicy(channel string, chaincodes *[]string, collections *m
 		return nil, err
 	}
 
-	var ccCalls []*discovery.ChaincodeCall
+	//var ccCalls []*discovery.ChaincodeCall
 
 	for _, cc := range *ccAndCol.Chaincodes {
-		ccCalls = append(ccCalls, &discovery.ChaincodeCall{
-			Name:            cc,
-			CollectionNames: cc2collections[cc],
+		ci = append(ci, &discovery.ChaincodeInterest{
+			Chaincodes: []*discovery.ChaincodeCall{{
+				Name: cc,
+				CollectionNames: cc2collections[cc],
+			}},
 		})
+		//ccCalls = append(ccCalls, &discovery.ChaincodeCall{
+		//	Name:            cc,
+		//	CollectionNames: cc2collections[cc],
+		//})
 	}
 
-	req, err := discoveryClient.NewRequest().OfChannel(channel).AddEndorsersQuery(&discovery.ChaincodeInterest{Chaincodes: ccCalls})
+	//req, err := discoveryClient.NewRequest().OfChannel(channel).AddEndorsersQuery(&discovery.ChaincodeInterest{Chaincodes: ccCalls})
+	req, err := discoveryClient.NewRequest().OfChannel(channel).AddEndorsersQuery(ci...)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed creating request")
 	}

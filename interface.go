@@ -45,7 +45,7 @@ func InitSDK(configPath string) error {
 		return err
 	}
 
-	if err = NewTLSCertInfo(handler.client.Crypto, clientConfig.ChannelConfig.ClientCert, clientConfig.ChannelConfig.ClientKey); err != nil {
+	if err = NewTLSCertInfo(handler.client.Crypto, clientConfig.ChannelConfig); err != nil {
 		return err
 	}
 
@@ -53,14 +53,14 @@ func InitSDK(configPath string) error {
 		return err
 	}
 
-	if orderers, err := newOrdererHandle(clientConfig.ChannelId); err != nil {
+	if orderers, err := newOrdererHandle(clientConfig.ChannelConfig.ChannelId); err != nil {
 		return err
 	} else {
 		handler.client.Orderers = orderers
 	}
 
-	chaincodes := []string{clientConfig.ChaincodeName}
-	if peers, err := newPeerHandle(clientConfig.ChannelId, &chaincodes); err != nil {
+	chaincodes := clientConfig.ChannelConfig.ChaincodeName
+	if peers, err := newPeerHandle(clientConfig.ChannelConfig.ChannelId, &chaincodes); err != nil {
 		return err
 	} else {
 		handler.client.Peers = peers
@@ -94,13 +94,13 @@ func GetHandler() *sdkHandler {
 }
 
 // GetChaincodeName get the channel's chaincode name
-func GetChaincodeName() string {
-	return handler.client.Channel.ChaincodeName
-}
+//func GetChaincodeName() string {
+//	return handler.client.Channel.ChaincodeName
+//}
 
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
-	peerNames := getSendPeerName()
+//	peerNames := getSendPeerName()
 	//orderName := getSendOrderName()
 	//if len(peerNames) == 0 || orderName == "" {
 	//	return nil, fmt.Errorf("config peer order is err")

@@ -12,11 +12,11 @@ type tlsCertInfo struct {
 
 var baseTLSCertInfo tlsCertInfo
 
-func NewTLSCertInfo(cryptoSuite CryptoSuite, certFile, keyFile string) error {
+func NewTLSCertInfo(cryptoSuite CryptoSuite, channelConfig ChannelConfig) error {
 	if nil == cryptoSuite {
 		return errors.New("the cryptoSuite is empty")
 	}
-	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	cert, err := tls.LoadX509KeyPair(channelConfig.ClientCert, channelConfig.ClientKey)
 	if err != nil {
 		return err
 	}
