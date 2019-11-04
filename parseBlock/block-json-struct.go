@@ -18,7 +18,7 @@ type Block struct {
 	LastConfigBlockNumber *LastConfigMetadata `json:"last_config_block_number,omitempty"`
 	TransactionFilter     []uint8             `json:"transaction_filter,omitempty"`
 	OrdererKafkaMetadata  *OrdererMetadata    `json:"orderer_kafka_metadata,omitempty"`
-	ChannelID             string              `json:"channel_id"`
+	ChannelId             string              `json:"channel_id"`
 	FirstTxTime           time.Time           `json:"first_tx_time"`
 	Size                  uint64              `json:"size"`
 	Error                 error

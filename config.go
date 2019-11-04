@@ -12,13 +12,13 @@ import (
 
 // ClientConfig holds config data for crypto, peers and orderers
 type ClientConfig struct {
-	CryptoConfig   									`yaml:"crypto"`
-	LocalConfig                                    `yaml:"localConfig"`
-	Orderers       	map[string]OrdererConfig    	`yaml:"orderers"`
-	Peers          	map[string]PeerConfig       	`yaml:"peers"`
-	EventPeers     	map[string]PeerConfig       	`yaml:"eventPeers"`
-	DiscoveryPeers 	map[string]ConnectionConfig 	`yaml:"discoveryPeers"`
-	Channels       	map[string][]string				`yaml:"channels"`
+	CryptoConfig   `yaml:"crypto"`
+	LocalConfig    `yaml:"localConfig"`
+	Orderers       map[string]OrdererConfig    `yaml:"orderers"`
+	Peers          map[string]PeerConfig       `yaml:"peers"`
+	EventPeers     map[string]PeerConfig       `yaml:"eventPeers"`
+	DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
+	CCofChannels   map[string][]string         `yaml:"ccofchannels"` //key为channelID，value为chaincodes
 }
 
 //type ChannelConfig struct {
@@ -33,10 +33,10 @@ type ClientConfig struct {
 //}
 
 type LocalConfig struct {
-	MspConfigPath    string `yaml:"mspConfigPath"`
-	LocalMspId       string `yaml:"localMspId"`
-	ClientCert       string `yaml:"clientCert"`
-	ClientKey        string `yaml:"clientKey"`
+	MspConfigPath string `yaml:"mspConfigPath"`
+	LocalMspId    string `yaml:"localMspId"`
+	ClientCert    string `yaml:"clientCert"`
+	ClientKey     string `yaml:"clientKey"`
 }
 
 type ChaincodePolicy struct {

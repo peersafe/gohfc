@@ -215,7 +215,7 @@ func processBlock(block *cb.Block, size uint64) Block {
 		localChannelHeader := &ChannelHeader{}
 		copyChannelHeaderToLocalChannelHeader(localChannelHeader, chHeader, headerExtension)
 
-		localBlock.ChannelID = localChannelHeader.ChannelId
+		localBlock.ChannelId = localChannelHeader.ChannelId
 		if txIndex == 0 {
 			localBlock.FirstTxTime = time.Unix(localChannelHeader.Timestamp.Seconds, int64(localChannelHeader.Timestamp.Nanos)).UTC()
 		}

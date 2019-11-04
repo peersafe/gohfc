@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
@@ -16,18 +17,17 @@ import (
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/peersafe/gohfc/parseBlock"
-	"strings"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
 type FabricClient struct {
-	Crypto     CryptoSuite
-	Peers      map[string][]*Peer
-	Orderers   map[string]*Orderer
-	EventPeers map[string]*Peer
-	Channels   map[string][]string
+	Crypto       CryptoSuite
+	Peers        map[string]map[string][]*Peer
+	Orderers     map[string]map[string]*Orderer
+	EventPeers   map[string]*Peer
+	CCofChannels map[string][]string //key为channelID，value为chaincodes
 	LocalConfig
-	Event      *EventListener
+	Event *EventListener
 	//EventPort  *EventPort
 }
 
@@ -45,7 +45,7 @@ func init() {
 // This step is needed before any peer is able to join the channel and before any future updates of the channel.
 func (c *FabricClient) CreateUpdateChannel(identity Identity, path string, channelId string, orderer string) error {
 
-	ord, ok := c.Orderers[orderer]
+	ord, ok := c.Orderers[channelId][orderer]
 	if !ok {
 		return ErrInvalidOrdererName
 	}
@@ -76,7 +76,7 @@ func (c *FabricClient) ConfigUpdate(identity Identity, data []byte, channelId st
 
 	}
 
-	ord, ok := c.Orderers[orderer]
+	ord, ok := c.Orderers[channelId][orderer]
 	if !ok {
 		return ErrInvalidOrdererName
 	}
@@ -99,12 +99,12 @@ func (c *FabricClient) ConfigUpdate(identity Identity, data []byte, channelId st
 // Channel must be created before this operation using `CreateUpdateChannel` or manually using CLI interface.
 // Orderers must be aware of this channel, otherwise operation will fail.
 func (c *FabricClient) JoinChannel(identity Identity, channelId string, peers []string, orderer string) ([]*PeerResponse, error) {
-	ord, ok := c.Orderers[orderer]
+	ord, ok := c.Orderers[channelId][orderer]
 	if !ok {
 		return nil, ErrInvalidOrdererName
 	}
 
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers(channelId, peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -175,7 +175,7 @@ func (c *FabricClient) JoinChannel(identity Identity, channelId string, peers []
 
 // InstallChainCode install chainCode to one or many peers. Peer must be in the channel where chaincode will be installed.
 func (c *FabricClient) InstallChainCode(identity Identity, req *InstallRequest, peers []string) ([]*PeerResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers("", peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -199,12 +199,12 @@ func (c *FabricClient) InstallChainCode(identity Identity, req *InstallRequest, 
 // will be created. collectionsConfig can be specified when chaincode is upgraded.
 func (c *FabricClient) InstantiateChainCode(identity Identity, req *ChainCode, peers []string, orderer string,
 	operation string, collectionsConfig []CollectionConfig) (*orderer.BroadcastResponse, error) {
-	ord, ok := c.Orderers[orderer]
+	ord, ok := c.Orderers[""][orderer]
 	if !ok {
 		return nil, ErrInvalidOrdererName
 	}
 
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers("", peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -249,7 +249,7 @@ func (c *FabricClient) InstantiateChainCode(identity Identity, req *ChainCode, p
 
 // QueryInstalledChainCodes get all chainCodes that are installed but not instantiated in one or many peers
 func (c *FabricClient) QueryInstalledChainCodes(identity Identity, peers []string) ([]*ChainCodesResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers("", peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -292,7 +292,7 @@ func (c *FabricClient) QueryInstalledChainCodes(identity Identity, peers []strin
 
 // QueryInstantiatedChainCodes get all chainCodes that are running (instantiated) "inside" particular channel in peer
 func (c *FabricClient) QueryInstantiatedChainCodes(identity Identity, channelId string, peers []string) ([]*ChainCodesResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers(channelId, peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -330,7 +330,7 @@ func (c *FabricClient) QueryInstantiatedChainCodes(identity Identity, channelId 
 
 // QueryChannels returns a list of channels that peer/s has joined
 func (c *FabricClient) QueryChannels(identity Identity, peers []string) ([]*QueryChannelsResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers("", peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -374,7 +374,7 @@ func (c *FabricClient) QueryChannels(identity Identity, peers []string) ([]*Quer
 
 // QueryChannelInfo get current block height, current hash and prev hash about particular channel in peer/s
 func (c *FabricClient) QueryChannelInfo(identity Identity, channelId string, peers []string) ([]*QueryChannelInfoResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers(channelId, peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -525,7 +525,7 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 }
 
 func (c *FabricClient) ordererBroadcast(channelId string, envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
-	for key, orderer := range c.Orderers {
+	for key, orderer := range c.Orderers[channelId] {
 		if !strings.Contains(key, channelId) {
 			continue
 		} else if reply, err := orderer.Broadcast(envelope); err == nil {
@@ -541,7 +541,7 @@ func (c *FabricClient) ordererBroadcast(channelId string, envelope *common.Envel
 // QueryTransaction get data for particular transaction.
 // TODO for now it only returns status of the transaction, and not the whole data (payload, endorsement etc)
 func (c *FabricClient) QueryTransaction(identity Identity, channelId string, txId string, peers []string) ([]*QueryTransactionResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getPeers(channelId, peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -713,7 +713,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
 
 	*/
-	client := FabricClient{Crypto: crypto, Channels: config.Channels, LocalConfig: config.LocalConfig}
+	client := FabricClient{Crypto: crypto, CCofChannels: config.CCofChannels, LocalConfig: config.LocalConfig}
 	return &client, nil
 }
 
@@ -749,11 +749,11 @@ func getOrderersFromChannelConfig(cr *discovery.ConfigResult) (map[string]Ordere
 	return ocs, nil
 }
 
-func newOrdererHandle(channels map[string][]string) (map[string]*Orderer, error) {
+func newOrdererHandle(ccofchannels map[string][]string) (map[string]map[string]*Orderer, error) {
 	var err error
-	oHandles := make(map[string]*Orderer)
+	oHandles := make(map[string]map[string]*Orderer)
 
-	for channel := range channels {
+	for channel := range ccofchannels {
 		chConfig, err = DiscoveryChannelConfig(channel)
 		if err != nil {
 			return nil, err
@@ -764,7 +764,6 @@ func newOrdererHandle(channels map[string][]string) (map[string]*Orderer, error)
 		}
 		logger.Debugf("channel %s has %d orderers", channel, len(ocs))
 
-
 		for name, o := range ocs {
 			oHandle, err := NewOrdererFromConfig(o)
 			if err != nil {
@@ -773,12 +772,12 @@ func newOrdererHandle(channels map[string][]string) (map[string]*Orderer, error)
 			}
 			oHandle.Name = name
 
-			oHandles[channel + name] = oHandle
+			oHandles[channel][name] = oHandle
 			logger.Debugf("make handle to orderer %s successful", name)
-		}
 
-		if len(oHandles) == 0 {
-			return nil, errors.New("no available orderer handle")
+			if len(oHandles[channel]) == 0 {
+				return nil, errors.New("no available orderer handle")
+			}
 		}
 	}
 
@@ -835,10 +834,10 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 	return pConnConfigs, nil
 }
 
-func newPeerHandle(channels map[string][]string) (map[string][]*Peer, error) {
-	pHandles := make(map[string][]*Peer)
+func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*Peer, error) {
+	pHandles := make(map[string]map[string][]*Peer)
 
-	for channel, chaincodes := range channels {
+	for channel, chaincodes := range ccofchannels {
 		pConnConfigs, err := getPeersFromDiscovery(channel, chaincodes)
 		if err != nil {
 			return nil, err
@@ -854,23 +853,22 @@ func newPeerHandle(channels map[string][]string) (map[string][]*Peer, error) {
 				pHandle.conn = c
 				pHandle.client = NewPeerFromConn(c)
 				pHandle.Uri = p.Host
-				pHandles[channel + key] = append(pHandles[key], &pHandle)
+				pHandles[channel][key] = append(pHandles[channel][key], &pHandle)
 				logger.Debugf("create handle to the org %s %s successful", key, p.Host)
 			}
 		}
-	}
-
-	if len(pHandles) == 0 {
-		return nil, errors.New("no available peer handle")
+		if len(pHandles) == 0 {
+			return nil, errors.New("no available peer handle")
+		}
 	}
 
 	return pHandles, nil
 }
 
-func (c FabricClient) getPeers(names []string) []*Peer {
+func (c FabricClient) getPeers(channel string, names []string) []*Peer {
 	res := make([]*Peer, 0, len(names))
 	for _, p := range names {
-		if fp, ok := c.Peers[p]; ok {
+		if fp, ok := c.Peers[channel][p]; ok {
 			res = append(res, fp[generateRangeNum(0, len(fp))])
 		}
 	}

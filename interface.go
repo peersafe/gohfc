@@ -53,13 +53,13 @@ func InitSDK(configPath string) error {
 		return err
 	}
 
-	if orderers, err := newOrdererHandle(clientConfig.Channels); err != nil {
+	if orderers, err := newOrdererHandle(clientConfig.CCofChannels); err != nil {
 		return err
 	} else {
 		handler.client.Orderers = orderers
 	}
 
-	if peers, err := newPeerHandle(clientConfig.Channels); err != nil {
+	if peers, err := newPeerHandle(clientConfig.CCofChannels); err != nil {
 		return err
 	} else {
 		handler.client.Peers = peers
@@ -99,7 +99,7 @@ func GetHandler() *sdkHandler {
 
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
-//	peerNames := getSendPeerName()
+	//	peerNames := getSendPeerName()
 	//orderName := getSendOrderName()
 	//if len(peerNames) == 0 || orderName == "" {
 	//	return nil, fmt.Errorf("config peer order is err")
@@ -150,9 +150,7 @@ func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryR
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
 	strBlockNum := strconv.FormatUint(blockNum, 10)
-	//if len(channelName) == 0 {
-	//	channelName = sdk.client.Channel.ChannelId
-	//}
+
 	if channelName == "" {
 		return nil, fmt.Errorf("GetBlockHeight channelName is empty ")
 	}
@@ -178,9 +176,6 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 }
 
 func (sdk *sdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.ProcessedTransaction, error) {
-	//if len(channelName) == 0 {
-	//	channelName = sdk.client.Channel.ChannelId
-	//}
 	if channelName == "" || txid == "" {
 		return nil, fmt.Errorf("GetTransactionByTXID channelName or txidd is empty ")
 	}
@@ -207,9 +202,6 @@ func (sdk *sdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.Pro
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
-	//if len(channelName) == 0 {
-	//	channelName = sdk.client.Channel.ChannelId
-	//}
 	if channelName == "" {
 		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
 	}
@@ -236,19 +228,13 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
-	//if len(channelName) == 0 {
-	//	channelName = sdk.client.Channel.ChannelId
-	//}
-	if channelName == "" {
-		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
-	}
 	args := []string{"GetChainInfo", channelName}
 	mspId := handler.client.LocalMspId
 	if channelName == "" || mspId == "" {
-		return 0, fmt.Errorf("channelName or mspid is empty")
+		return 0, fmt.Errorf("GetBlockHeight channelName or mspid is empty")
 	}
 	if eventName == "" {
-		return 0, fmt.Errorf("event peername is empty")
+		return 0, fmt.Errorf("GetBlockHeight event peername is empty")
 	}
 	chaincode := ChainCode{
 		ChannelId: channelName,
@@ -279,9 +265,6 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
-	//if len(channelName) == 0 {
-	//	channelName = sdk.client.Channel.ChannelId
-	//}
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFullBlock channelName is empty ")
 	}
@@ -301,9 +284,6 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
-	//if len(channelName) == 0 {
-	//	channelName = sdk.client.Channel.ChannelId
-	//}
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
 	}
@@ -343,13 +323,13 @@ func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Blo
 }
 */
 
-func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
+func (sdk *sdkHandler) GetOrdererConnect(channel string) (bool, error) {
 	orderName := getSendOrderName()
 	if orderName == "" {
 		return false, fmt.Errorf("config order is err")
 	}
-	if _, ok := sdk.client.Orderers[orderName]; ok {
-		ord := sdk.client.Orderers[orderName]
+	if _, ok := sdk.client.Orderers[channel][orderName]; ok {
+		ord := sdk.client.Orderers[channel][orderName]
 		if ord != nil && ord.con != nil {
 			if ord.con.GetState() == connectivity.Ready {
 				return true, nil
@@ -406,6 +386,6 @@ func SetArgsTxid(txid string, args *[]string) {
 	}
 }
 
-func getPeerHandleByGroup(group string) []*Peer {
-	return handler.client.Peers[group]
+func getPeerHandleByGroup(channel, group string) []*Peer {
+	return handler.client.Peers[channel][group]
 }

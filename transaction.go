@@ -211,7 +211,7 @@ func sendToEndorserGroup(prop *peer.SignedProposal, channel string, chaincode st
 	ch := make(chan *PeerResponse)
 	resp := make([]*PeerResponse, 0, num)
 	for _, g := range eg {
-		peers := getPeerHandleByGroup(channel + g)
+		peers := getPeerHandleByGroup(channel, g)
 		p := peers[generateRangeNum(0, len(peers))]
 		go p.Endorse(ch, prop)
 	}
@@ -231,7 +231,7 @@ func sendToOneEndorserPeer(prop *peer.SignedProposal, channel string, chaincode 
 	}
 	targetEG := generateRangeNum(0, len(egs))
 	eg := egs[targetEG]
-	peers := getPeerHandleByGroup(channel + eg[generateRangeNum(0, len(eg))])
+	peers := getPeerHandleByGroup(channel, eg[generateRangeNum(0, len(eg))])
 	p := peers[generateRangeNum(0, len(peers))]
 	go p.Endorse(ch, prop)
 	resp := <-ch

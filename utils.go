@@ -14,12 +14,6 @@ import (
 )
 
 func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
-	if len(channelName) == 0 {
-		return nil, fmt.Errorf("the channel is empty")
-	}
-	if len(chaincodeName) == 0 {
-		return nil, fmt.Errorf("the chaincode is empty")
-	}
 	mspId := handler.client.LocalMspId
 	if channelName == "" || chaincodeName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or chaincodeName or mspId is empty")

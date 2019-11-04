@@ -36,7 +36,7 @@ eventPeers:
     orgName: org1
     useTLS: true
     tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
-channels:
+ccofchannels:
   mychannel:
     - factor
     - factor2
