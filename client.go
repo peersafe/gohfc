@@ -857,7 +857,7 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 				logger.Debugf("create handle to the org %s %s successful", key, p.Host)
 			}
 		}
-		if len(pHandles) == 0 {
+		if len(pHandles[channel]) == 0 {
 			return nil, errors.New("no available peer handle")
 		}
 	}
