@@ -16,6 +16,7 @@ import (
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/peersafe/gohfc/parseBlock"
+	"strings"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -24,7 +25,8 @@ type FabricClient struct {
 	Peers      map[string][]*Peer
 	Orderers   map[string]*Orderer
 	EventPeers map[string]*Peer
-	Channel    ChannelConfig
+	Channels   map[string][]string
+	LocalConfig
 	Event      *EventListener
 	//EventPort  *EventPort
 }
@@ -433,6 +435,10 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode) ([]*QueryRe
 
 	//r := sendToPeers(execPeers, proposal)
 	r := sendToOneEndorserPeer(proposal, chainCode.ChannelId, chainCode.Name)
+	if r == nil {
+		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
+	}
+
 	response := make([]*QueryResponse, 1)
 	ic := QueryResponse{PeerName: r.Name, Error: r.Err}
 	if r.Err != nil {
@@ -497,6 +503,9 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 		return nil, err
 	}
 	peerResponse := sendToEndorserGroup(proposal, chainCode.ChannelId, chainCode.Name)
+	if peerResponse == nil {
+		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
+	}
 	transaction, err := createTransaction(prop.proposal, peerResponse)
 	if err != nil {
 		return nil, err
@@ -511,13 +520,15 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 			return nil, err
 		}
 	*/
-	reply, err := c.ordererBroadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
+	reply, err := c.ordererBroadcast(chainCode.ChannelId, &common.Envelope{Payload: transaction, Signature: signedTransaction})
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
 }
 
-func (c *FabricClient) ordererBroadcast(envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
+func (c *FabricClient) ordererBroadcast(channelId string, envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
 	for key, orderer := range c.Orderers {
-		if reply, err := orderer.Broadcast(envelope); err == nil {
+		if !strings.Contains(key, channelId) {
+			continue
+		} else if reply, err := orderer.Broadcast(envelope); err == nil {
 			return reply, nil
 		} else {
 			logger.Errorf("send to orderer %s failed!", key)
@@ -549,7 +560,7 @@ func (c *FabricClient) QueryTransaction(identity Identity, channelId string, txI
 		return nil, err
 	}
 	r := sendToPeers(execPeers, proposal)
-	fmt.Println(r)
+
 	response := make([]*QueryTransactionResponse, len(r))
 	for idx, p := range r {
 		qtr := QueryTransactionResponse{PeerName: p.Name, Error: p.Err}
@@ -702,7 +713,7 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 		client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
 
 	*/
-	client := FabricClient{Crypto: crypto, Channel: config.ChannelConfig}
+	client := FabricClient{Crypto: crypto, Channels: config.Channels, LocalConfig: config.LocalConfig}
 	return &client, nil
 }
 
@@ -738,39 +749,44 @@ func getOrderersFromChannelConfig(cr *discovery.ConfigResult) (map[string]Ordere
 	return ocs, nil
 }
 
-func newOrdererHandle(channel string) (map[string]*Orderer, error) {
+func newOrdererHandle(channels map[string][]string) (map[string]*Orderer, error) {
 	var err error
-
-	chConfig, err = DiscoveryChannelConfig(channel)
-	if err != nil {
-		return nil, err
-	}
-	ocs, err := getOrderersFromChannelConfig(chConfig)
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("channel %s has %d orderers", channel, len(ocs))
-
 	oHandles := make(map[string]*Orderer)
-	for name, o := range ocs {
-		oHandle, err := NewOrdererFromConfig(o)
+
+	for channel := range channels {
+		chConfig, err = DiscoveryChannelConfig(channel)
 		if err != nil {
-			logger.Errorf("connect to orderer %s failed", o.Host)
-			continue
+			return nil, err
 		}
-		oHandle.Name = name
-		oHandles[name] = oHandle
-		logger.Debugf("make handle to orderer %s successful", name)
+		ocs, err := getOrderersFromChannelConfig(chConfig)
+		if err != nil {
+			return nil, err
+		}
+		logger.Debugf("channel %s has %d orderers", channel, len(ocs))
+
+
+		for name, o := range ocs {
+			oHandle, err := NewOrdererFromConfig(o)
+			if err != nil {
+				logger.Errorf("connect to orderer %s failed", o.Host)
+				continue
+			}
+			oHandle.Name = name
+
+			oHandles[channel + name] = oHandle
+			logger.Debugf("make handle to orderer %s successful", name)
+		}
+
+		if len(oHandles) == 0 {
+			return nil, errors.New("no available orderer handle")
+		}
 	}
 
-	if len(oHandles) == 0 {
-		return nil, errors.New("no available orderer handle")
-	}
 	return oHandles, nil
 }
 
 // TODO: handle multi chaincodes
-func getPeersFromDiscovery(channel string, chaincodes *[]string) (map[string][]ConnectionConfig, error) {
+func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]ConnectionConfig, error) {
 	eps, err := DiscoveryEndorsePolicy(channel, chaincodes, nil)
 	if err != nil {
 		return nil, err
@@ -819,25 +835,28 @@ func getPeersFromDiscovery(channel string, chaincodes *[]string) (map[string][]C
 	return pConnConfigs, nil
 }
 
-func newPeerHandle(channel string, chaincodes *[]string) (map[string][]*Peer, error) {
-	pConnConfigs, err := getPeersFromDiscovery(channel, chaincodes)
-	if err != nil {
-		return nil, err
-	}
+func newPeerHandle(channels map[string][]string) (map[string][]*Peer, error) {
 	pHandles := make(map[string][]*Peer)
-	for key, o := range pConnConfigs {
-		for _, p := range o {
-			c, err := NewConnection(&p)
-			if err != nil {
-				logger.Errorf("connect to peer %s failed", p.Host)
-				continue
+
+	for channel, chaincodes := range channels {
+		pConnConfigs, err := getPeersFromDiscovery(channel, chaincodes)
+		if err != nil {
+			return nil, err
+		}
+		for key, o := range pConnConfigs {
+			for _, p := range o {
+				c, err := NewConnection(&p)
+				if err != nil {
+					logger.Errorf("connect to peer %s failed", p.Host)
+					continue
+				}
+				var pHandle Peer
+				pHandle.conn = c
+				pHandle.client = NewPeerFromConn(c)
+				pHandle.Uri = p.Host
+				pHandles[channel + key] = append(pHandles[key], &pHandle)
+				logger.Debugf("create handle to the org %s %s successful", key, p.Host)
 			}
-			var pHandle Peer
-			pHandle.conn = c
-			pHandle.client = NewPeerFromConn(c)
-			pHandle.Uri = p.Host
-			pHandles[key] = append(pHandles[key], &pHandle)
-			logger.Debugf("create handle to the org %s %s successful", key, p.Host)
 		}
 	}
 

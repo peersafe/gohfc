@@ -36,28 +36,12 @@ eventPeers:
     orgName: org1
     useTLS: true
     tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
-channel:
-  mspConfigPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
-  localMspId:          Org1MSP
-  channelId:           mychannel
-  chaincodeName:
+channels:
+  mychannel:
     - factor
     - factor2
- #   mychannel2:
- #     - factor
-#    chaincodeVersion:    1.0
-#    chaincodePolicy:
-#      orgs:
-#        - org1
-#        - org2
-#      rule: and
-  clientCert: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
-  clientKey: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.key
-mq:
-    mqEnable: false
-    mqAddress:
-      - "amqp://guest:guest@localhost:5672/"
-    queueName: "TradeQueue"
+  mychannel2:
+    - factor
 user:
     id: bankA
 apiserver:
@@ -69,6 +53,8 @@ apiserver:
     probe_order: "127.0.0.1 7050"
 other:
     check_time: 2m
-log:
-  logLevel: DEBUG
-  logModelName: apiserver
+localConfig:
+    mspConfigPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+    localMspId:          Org1MSP
+    clientCert: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
+    clientKey: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.key

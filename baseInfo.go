@@ -12,16 +12,16 @@ type tlsCertInfo struct {
 
 var baseTLSCertInfo tlsCertInfo
 
-func NewTLSCertInfo(cryptoSuite CryptoSuite, channelConfig ChannelConfig) error {
-	if nil == cryptoSuite {
+func NewTLSCertInfo(fabClient *FabricClient) error {
+	if nil == fabClient.Crypto {
 		return errors.New("the cryptoSuite is empty")
 	}
-	cert, err := tls.LoadX509KeyPair(channelConfig.ClientCert, channelConfig.ClientKey)
+	cert, err := tls.LoadX509KeyPair(fabClient.ClientCert, fabClient.ClientKey)
 	if err != nil {
 		return err
 	}
 
-	baseTLSCertInfo.certHash = cryptoSuite.Hash(cert.Certificate[0])
+	baseTLSCertInfo.certHash = fabClient.Crypto.Hash(cert.Certificate[0])
 	baseTLSCertInfo.cert = cert
 
 	return nil

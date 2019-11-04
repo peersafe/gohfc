@@ -24,7 +24,7 @@ var (
 	tlsHashs         map[string][]byte
 )
 
-func NewDiscoveryClient(conf map[string]ConnectionConfig, channelConfig *ChannelConfig) error {
+func NewDiscoveryClient(conf map[string]ConnectionConfig, channelConfig *ClientConfig) error {
 	signer = discoveryClient.NewSign(channelConfig.MspConfigPath, channelConfig.LocalMspId)
 	if signer == nil {
 		return errors.New("construct signer failed")
@@ -140,11 +140,11 @@ func DiscoveryChannelConfig(channel string) (*discovery.ConfigResult, error) {
 	return nil, errors.New("send discovery channel config to all peers failed")
 }
 
-func DiscoveryEndorsePolicy(channel string, chaincodes *[]string, collections *map[string]string) ([]*endorsermentDescriptor, error) {
+func DiscoveryEndorsePolicy(channel string, chaincodes []string, collections *map[string]string) ([]*endorsermentDescriptor, error) {
 	var ci []*discovery.ChaincodeInterest
 
 	ccAndCol := &chaincodesAndCollections{
-		Chaincodes:  chaincodes,
+		Chaincodes:  &chaincodes,
 		Collections: collections,
 	}
 	cc2collections, err := ccAndCol.parseInput()

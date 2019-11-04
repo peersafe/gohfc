@@ -12,21 +12,29 @@ import (
 
 // ClientConfig holds config data for crypto, peers and orderers
 type ClientConfig struct {
-	CryptoConfig   `yaml:"crypto"`
-	Orderers       map[string]OrdererConfig    `yaml:"orderers"`
-	Peers          map[string]PeerConfig       `yaml:"peers"`
-	EventPeers     map[string]PeerConfig       `yaml:"eventPeers"`
-	DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
-	ChannelConfig  ChannelConfig  `yaml:"channel"`
+	CryptoConfig   									`yaml:"crypto"`
+	LocalConfig                                    `yaml:"localConfig"`
+	Orderers       	map[string]OrdererConfig    	`yaml:"orderers"`
+	Peers          	map[string]PeerConfig       	`yaml:"peers"`
+	EventPeers     	map[string]PeerConfig       	`yaml:"eventPeers"`
+	DiscoveryPeers 	map[string]ConnectionConfig 	`yaml:"discoveryPeers"`
+	Channels       	map[string][]string				`yaml:"channels"`
 }
 
-type ChannelConfig struct {
-	MspConfigPath    string `yaml:"mspConfigPath"`
-	LocalMspId       string `yaml:"localMspId"`
-	ChannelId        string `yaml:"channelId"`
-	ChaincodeName    []string `yaml:"chaincodeName"`
+//type ChannelConfig struct {
+//	MspConfigPath    string `yaml:"mspConfigPath"`
+//	LocalMspId       string `yaml:"localMspId"`
+//	ChannelId        string `yaml:"channelId"`
+//	Chaincodes    []string `yaml:"chaincodes"`
 //	ChaincodeVersion string `yaml:"chaincodeVersion"`
 //	ChaincodePolicy  `yaml:"chaincodePolicy"`
+//	ClientCert       string `yaml:"clientCert"`
+//	ClientKey        string `yaml:"clientKey"`
+//}
+
+type LocalConfig struct {
+	MspConfigPath    string `yaml:"mspConfigPath"`
+	LocalMspId       string `yaml:"localMspId"`
 	ClientCert       string `yaml:"clientCert"`
 	ClientKey        string `yaml:"clientKey"`
 }

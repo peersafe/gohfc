@@ -45,28 +45,27 @@ func InitSDK(configPath string) error {
 		return err
 	}
 
-	if err = NewTLSCertInfo(handler.client.Crypto, clientConfig.ChannelConfig); err != nil {
+	if err = NewTLSCertInfo(handler.client); err != nil {
 		return err
 	}
 
-	if err = NewDiscoveryClient(clientConfig.DiscoveryPeers, &clientConfig.ChannelConfig); err != nil {
+	if err = NewDiscoveryClient(clientConfig.DiscoveryPeers, clientConfig); err != nil {
 		return err
 	}
 
-	if orderers, err := newOrdererHandle(clientConfig.ChannelConfig.ChannelId); err != nil {
+	if orderers, err := newOrdererHandle(clientConfig.Channels); err != nil {
 		return err
 	} else {
 		handler.client.Orderers = orderers
 	}
 
-	chaincodes := clientConfig.ChannelConfig.ChaincodeName
-	if peers, err := newPeerHandle(clientConfig.ChannelConfig.ChannelId, &chaincodes); err != nil {
+	if peers, err := newPeerHandle(clientConfig.Channels); err != nil {
 		return err
 	} else {
 		handler.client.Peers = peers
 	}
 
-	mspPath := handler.client.Channel.MspConfigPath
+	mspPath := handler.client.MspConfigPath
 	if mspPath == "" {
 		return fmt.Errorf("config mspPath is empty")
 	}
@@ -78,7 +77,7 @@ func InitSDK(configPath string) error {
 	if err != nil {
 		return err
 	}
-	handler.identity.MspId = handler.client.Channel.LocalMspId
+	handler.identity.MspId = handler.client.LocalMspId
 	/*
 		if err := parsePolicy(); err != nil {
 			return fmt.Errorf("parsePolicy err: %s\n", err.Error())
@@ -133,7 +132,7 @@ func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryR
 	//	return nil, fmt.Errorf("config peer order is err")
 	//}
 
-	mspId := handler.client.Channel.LocalMspId
+	mspId := handler.client.LocalMspId
 	if channelName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or mspid is empty")
 	}
@@ -151,9 +150,9 @@ func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryR
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
 	strBlockNum := strconv.FormatUint(blockNum, 10)
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
+	//if len(channelName) == 0 {
+	//	channelName = sdk.client.Channel.ChannelId
+	//}
 	if channelName == "" {
 		return nil, fmt.Errorf("GetBlockHeight channelName is empty ")
 	}
@@ -179,9 +178,9 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 }
 
 func (sdk *sdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.ProcessedTransaction, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
+	//if len(channelName) == 0 {
+	//	channelName = sdk.client.Channel.ChannelId
+	//}
 	if channelName == "" || txid == "" {
 		return nil, fmt.Errorf("GetTransactionByTXID channelName or txidd is empty ")
 	}
@@ -208,9 +207,9 @@ func (sdk *sdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.Pro
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
+	//if len(channelName) == 0 {
+	//	channelName = sdk.client.Channel.ChannelId
+	//}
 	if channelName == "" {
 		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
 	}
@@ -237,11 +236,14 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
+	//if len(channelName) == 0 {
+	//	channelName = sdk.client.Channel.ChannelId
+	//}
+	if channelName == "" {
+		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
 	}
 	args := []string{"GetChainInfo", channelName}
-	mspId := handler.client.Channel.LocalMspId
+	mspId := handler.client.LocalMspId
 	if channelName == "" || mspId == "" {
 		return 0, fmt.Errorf("channelName or mspid is empty")
 	}
@@ -277,9 +279,9 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
+	//if len(channelName) == 0 {
+	//	channelName = sdk.client.Channel.ChannelId
+	//}
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFullBlock channelName is empty ")
 	}
@@ -299,9 +301,9 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
+	//if len(channelName) == 0 {
+	//	channelName = sdk.client.Channel.ChannelId
+	//}
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
 	}
@@ -369,13 +371,13 @@ func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block,
 }
 
 // param channel only used for create channel, if upate config channel should be nil
-func (sdk *sdkHandler) ConfigUpdate(payload []byte, channel string) error {
-	orderName := getSendOrderName()
-	if channel != "" {
-		return sdk.client.ConfigUpdate(*sdk.identity, payload, channel, orderName)
-	}
-	return sdk.client.ConfigUpdate(*sdk.identity, payload, sdk.client.Channel.ChannelId, orderName)
-}
+//func (sdk *sdkHandler) ConfigUpdate(payload []byte, channel string) error {
+//	orderName := getSendOrderName()
+//	if channel != "" {
+//		return sdk.client.ConfigUpdate(*sdk.identity, payload, channel, orderName)
+//	}
+//	return sdk.client.ConfigUpdate(*sdk.identity, payload, sdk.client.Channel.ChannelId, orderName)
+//}
 
 type KeyValue struct {
 	Key   string `json:"key"`   //存储数据的key
