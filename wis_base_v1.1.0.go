@@ -188,12 +188,12 @@ func (w *WisHandler) Init() error {
 	*/
 
 	if "" != w.OrderName {
-		orderers := make(map[string]map[string]*Orderer)
+		orderers := make(map[string][]*Orderer)
 		order, err := NewOrdererFromConfig(w.OrdererConf)
 		if err != nil {
 			return fmt.Errorf("Order NewOrdererFromConfig err :", err)
 		}
-		orderers[w.Channeluuids][w.OrderName] = order
+		orderers[w.Channeluuids] = append(orderers[w.Channeluuids], order)
 		w.FaCli.Orderers = orderers
 	}
 

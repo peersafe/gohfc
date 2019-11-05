@@ -86,7 +86,7 @@ func main() {
 		}
 	case "checkordconn":
 		for {
-			ok, err := gohfc.GetHandler().GetOrdererConnect()
+			ok, err := gohfc.GetHandler().GetOrdererConnect("")
 			if err != nil {
 				logger.Error(err)
 				return

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
@@ -23,7 +22,7 @@ import (
 type FabricClient struct {
 	Crypto       CryptoSuite
 	Peers        map[string]map[string][]*Peer
-	Orderers     map[string]map[string]*Orderer
+	Orderers     map[string][]*Orderer
 	EventPeers   map[string]*Peer
 	CCofChannels map[string][]string //key为channelID，value为chaincodes
 	LocalConfig
@@ -45,7 +44,7 @@ func init() {
 // This step is needed before any peer is able to join the channel and before any future updates of the channel.
 func (c *FabricClient) CreateUpdateChannel(identity Identity, path string, channelId string, orderer string) error {
 
-	ord, ok := c.Orderers[channelId][orderer]
+	ord, ok := c.Orderers[channelId]
 	if !ok {
 		return ErrInvalidOrdererName
 	}
@@ -58,7 +57,7 @@ func (c *FabricClient) CreateUpdateChannel(identity Identity, path string, chann
 	if err != nil {
 		return err
 	}
-	replay, err := ord.Broadcast(ou)
+	replay, err := ord[0].Broadcast(ou)
 	if err != nil {
 		return err
 	}
@@ -76,7 +75,7 @@ func (c *FabricClient) ConfigUpdate(identity Identity, data []byte, channelId st
 
 	}
 
-	ord, ok := c.Orderers[channelId][orderer]
+	ord, ok := c.Orderers[channelId]
 	if !ok {
 		return ErrInvalidOrdererName
 	}
@@ -85,7 +84,7 @@ func (c *FabricClient) ConfigUpdate(identity Identity, data []byte, channelId st
 	if err != nil {
 		return err
 	}
-	replay, err := ord.Broadcast(ou)
+	replay, err := ord[0].Broadcast(ou)
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,7 @@ func (c *FabricClient) ConfigUpdate(identity Identity, data []byte, channelId st
 // Channel must be created before this operation using `CreateUpdateChannel` or manually using CLI interface.
 // Orderers must be aware of this channel, otherwise operation will fail.
 func (c *FabricClient) JoinChannel(identity Identity, channelId string, peers []string, orderer string) ([]*PeerResponse, error) {
-	ord, ok := c.Orderers[channelId][orderer]
+	ord, ok := c.Orderers[channelId]
 	if !ok {
 		return nil, ErrInvalidOrdererName
 	}
@@ -109,7 +108,7 @@ func (c *FabricClient) JoinChannel(identity Identity, channelId string, peers []
 		return nil, ErrPeerNameNotFound
 	}
 
-	block, err := ord.getGenesisBlock(identity, c.Crypto, channelId)
+	block, err := ord[0].getGenesisBlock(identity, c.Crypto, channelId)
 
 	if err != nil {
 		return nil, err
@@ -199,7 +198,7 @@ func (c *FabricClient) InstallChainCode(identity Identity, req *InstallRequest, 
 // will be created. collectionsConfig can be specified when chaincode is upgraded.
 func (c *FabricClient) InstantiateChainCode(identity Identity, req *ChainCode, peers []string, orderer string,
 	operation string, collectionsConfig []CollectionConfig) (*orderer.BroadcastResponse, error) {
-	ord, ok := c.Orderers[""][orderer]
+	ord, ok := c.Orderers[""]
 	if !ok {
 		return nil, ErrInvalidOrdererName
 	}
@@ -240,7 +239,7 @@ func (c *FabricClient) InstantiateChainCode(identity Identity, req *ChainCode, p
 		return nil, err
 	}
 
-	reply, err := ord.Broadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
+	reply, err := ord[0].Broadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
 	if err != nil {
 		return nil, err
 	}
@@ -521,14 +520,16 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 		}
 	*/
 	reply, err := c.ordererBroadcast(chainCode.ChannelId, &common.Envelope{Payload: transaction, Signature: signedTransaction})
+	if err != nil {
+		return nil, err
+	}
+
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
 }
 
 func (c *FabricClient) ordererBroadcast(channelId string, envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
 	for key, orderer := range c.Orderers[channelId] {
-		if !strings.Contains(key, channelId) {
-			continue
-		} else if reply, err := orderer.Broadcast(envelope); err == nil {
+		if reply, err := orderer.Broadcast(envelope); err == nil {
 			return reply, nil
 		} else {
 			logger.Errorf("send to orderer %s failed!", key)
@@ -749,9 +750,9 @@ func getOrderersFromChannelConfig(cr *discovery.ConfigResult) (map[string]Ordere
 	return ocs, nil
 }
 
-func newOrdererHandle(ccofchannels map[string][]string) (map[string]map[string]*Orderer, error) {
+func newOrdererHandle(ccofchannels map[string][]string) (map[string][]*Orderer, error) {
 	var err error
-	oHandles := make(map[string]map[string]*Orderer)
+	oHandles := make(map[string][]*Orderer)
 
 	for channel := range ccofchannels {
 		chConfig, err = DiscoveryChannelConfig(channel)
@@ -772,7 +773,7 @@ func newOrdererHandle(ccofchannels map[string][]string) (map[string]map[string]*
 			}
 			oHandle.Name = name
 
-			oHandles[channel][name] = oHandle
+			oHandles[channel] = append(oHandles[channel], oHandle)
 			logger.Debugf("make handle to orderer %s successful", name)
 
 			if len(oHandles[channel]) == 0 {
@@ -838,6 +839,7 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 	pHandles := make(map[string]map[string][]*Peer)
 
 	for channel, chaincodes := range ccofchannels {
+		pHandles[channel] = make(map[string][]*Peer)
 		pConnConfigs, err := getPeersFromDiscovery(channel, chaincodes)
 		if err != nil {
 			return nil, err

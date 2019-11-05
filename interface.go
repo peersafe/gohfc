@@ -328,13 +328,13 @@ func (sdk *sdkHandler) GetOrdererConnect(channel string) (bool, error) {
 	if orderName == "" {
 		return false, fmt.Errorf("config order is err")
 	}
-	if _, ok := sdk.client.Orderers[channel][orderName]; ok {
-		ord := sdk.client.Orderers[channel][orderName]
-		if ord != nil && ord.con != nil {
-			if ord.con.GetState() == connectivity.Ready {
+	if _, ok := sdk.client.Orderers[channel]; ok {
+		ord := sdk.client.Orderers[channel]
+		if ord != nil && ord[0].con != nil {
+			if ord[0].con.GetState() == connectivity.Ready {
 				return true, nil
 			} else {
-				return false, fmt.Errorf("the orderer connect state %s:%s", orderName, ord.con.GetState().String())
+				return false, fmt.Errorf("the orderer connect state %s:%s", orderName, ord[0].con.GetState().String())
 			}
 		} else {
 			return false, fmt.Errorf("the orderer or connect is nil")
