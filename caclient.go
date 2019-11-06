@@ -1231,8 +1231,8 @@ func concatErrors(errs []caResponseErr) error {
 	return fmt.Errorf(errors)
 }
 
-// NewCaClientFromConfig creates new FabricCAClient from CAConfig
-func NewCaClientFromConfig(config CAConfig, transport *http.Transport) (*FabricCAClient, error) {
+// newCaClientFromConfig creates new FabricCAClient from CAConfig
+func newCaClientFromConfig(config CAConfig, transport *http.Transport) (*FabricCAClient, error) {
 
 	var crypto CryptoSuite
 	var err error
@@ -1258,9 +1258,9 @@ func NewCaClientFromConfig(config CAConfig, transport *http.Transport) (*FabricC
 // transport is the transport that will be used in all requests. If transport is nil default transport will be used.
 // It is responsibility of the SDK user to provide correct settings and TLS certificates if custom transport is provided.
 func NewCAClient(path string, transport *http.Transport) (*FabricCAClient, error) {
-	config, err := NewCAConfig(path)
+	config, err := newCAConfig(path)
 	if err != nil {
 		return nil, err
 	}
-	return NewCaClientFromConfig(*config, transport)
+	return newCaClientFromConfig(*config, transport)
 }

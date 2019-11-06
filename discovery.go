@@ -24,14 +24,14 @@ var (
 	tlsHashs         map[string][]byte
 )
 
-func NewDiscoveryClient(conf map[string]ConnectionConfig, clientConfig *ClientConfig) error {
+func newDiscoveryClient(conf map[string]ConnectionConfig, clientConfig *ClientConfig) error {
 	signer = discoveryClient.NewSign(clientConfig.MspConfigPath, clientConfig.LocalMspId)
 	if signer == nil {
 		return errors.New("construct signer failed")
 	}
 
 	for key, value := range conf {
-		grpcConn, err := NewConnection(&value)
+		grpcConn, err := newConnection(&value)
 		if err != nil {
 			logger.Errorf("make grpc connection to %s failed: %s", key, err.Error())
 			continue
@@ -113,7 +113,7 @@ func DiscoveryLocalPeers(channel string) ([]*LocalPeer, error) {
 	return nil, errors.New("send discovery local peers request to all peers failed!")
 }
 
-func DiscoveryChannelConfig(channel string) (*discovery.ConfigResult, error) {
+func discoveryChannelConfig(channel string) (*discovery.ConfigResult, error) {
 	if "" == channel {
 		return nil, errors.New("the input channel is empty")
 	}

@@ -357,7 +357,7 @@ func createTransactionProposal(identity Identity, cc ChainCode, crypto CryptoSui
 		return nil, err
 	}
 
-	SetArgsTxid(txId.TransactionId, &cc.Args)
+	setArgsTxid(txId.TransactionId, &cc.Args)
 
 	spec, err := chainCodeInvocationSpec(cc)
 	if err != nil {

@@ -133,8 +133,8 @@ func (o *Orderer) getGenesisBlock(identity Identity, crypto CryptoSuite, channel
 	return o.Deliver(env)
 }
 
-// NewOrdererFromConfig create new Orderer from config
-func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
+// newOrdererFromConfig create new Orderer from config
+func newOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 	o := Orderer{Uri: conf.Host, caPath: conf.TlsPath}
 	if !conf.UseTLS {
 		o.Opts = []grpc.DialOption{grpc.WithInsecure()}

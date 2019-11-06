@@ -137,7 +137,7 @@ func (w *WisHandler) Init() error {
 	pubkey := findCurt(w.Pubkeys)
 	prikey := findCurt(w.Prikeys)
 
-	identity, err := LoadCertFromFile(pubkey, prikey)
+	identity, err := loadCertFromFile(pubkey, prikey)
 	if err != nil {
 		wis_logger.Error("LoadCertFromFile err = ", err)
 		return err
@@ -189,7 +189,7 @@ func (w *WisHandler) Init() error {
 
 	if "" != w.OrderName {
 		orderers := make(map[string][]*Orderer)
-		order, err := NewOrdererFromConfig(w.OrdererConf)
+		order, err := newOrdererFromConfig(w.OrdererConf)
 		if err != nil {
 			return fmt.Errorf("Order NewOrdererFromConfig err :", err)
 		}
@@ -199,7 +199,7 @@ func (w *WisHandler) Init() error {
 
 	if "" != w.EventPeer {
 		eventpeers := make(map[string]*Peer)
-		eventpeer, err := NewPeerFromConfig(w.PeerConfMap[w.EventPeer], crypto)
+		eventpeer, err := newPeerFromConfig(w.PeerConfMap[w.EventPeer], crypto)
 		if err != nil {
 			return fmt.Errorf("EventPeer NewPeerFromConfig err :", err)
 		}

@@ -64,24 +64,25 @@ func getSendOrderName() string {
 	return orderNames[generateRangeNum(0, len(orderNames))]
 }
 
-//func getSendPeerName() []string {
-//	if len(orRulePeerNames) > 0 {
-//		return []string{orRulePeerNames[generateRangeNum(0, len(orRulePeerNames))]}
-//	}
-//	if len(peerNames) > 0 {
-//		return peerNames
-//	}
-//	var sendNameList []string
-//	policyRule := handler.client.Channel.Rule
-//	if policyRule == "and" {
-//		for _, peerNames := range orgPeerMap {
-//			sendNameList = append(sendNameList, peerNames[generateRangeNum(0, len(peerNames))])
-//			continue
-//		}
-//	}
-//
-//	return sendNameList
-//}
+/*
+func getSendPeerName() []string {
+	if len(orRulePeerNames) > 0 {
+		return []string{orRulePeerNames[generateRangeNum(0, len(orRulePeerNames))]}
+	}
+	if len(peerNames) > 0 {
+		return peerNames
+	}
+	var sendNameList []string
+	policyRule := handler.client.Channel.Rule
+	if policyRule == "and" {
+		for _, peerNames := range orgPeerMap {
+			sendNameList = append(sendNameList, peerNames[generateRangeNum(0, len(peerNames))])
+			continue
+		}
+	}
+
+	return sendNameList
+}*/
 
 func generateRangeNum(min, max int) int {
 	rand.Seed(time.Now().Unix())

@@ -21,11 +21,10 @@ import (
 
 // FabricClient expose API's to work with Hyperledger Fabric
 type FabricClient struct {
-	Crypto       CryptoSuite
-	Peers        map[string]map[string][]*Peer
-	Orderers     map[string][]*Orderer
-	EventPeers   map[string]*Peer
-	CCofChannels map[string][]string //key为channelID，value为chaincodes
+	Crypto     CryptoSuite
+	Peers      map[string]map[string][]*Peer
+	Orderers   map[string][]*Orderer
+	EventPeers map[string]*Peer
 	LocalConfig
 	Event *EventListener
 	//EventPort  *EventPort
@@ -210,7 +209,7 @@ func (c *FabricClient) InstantiateChainCode(identity Identity, req *ChainCode, p
 	}
 	var collConfigBytes []byte
 	if len(collectionsConfig) > 0 {
-		collectionPolicy, err := CollectionConfigToPolicy(collectionsConfig)
+		collectionPolicy, err := collectionConfigToPolicy(collectionsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -595,7 +594,7 @@ func (c *FabricClient) ListenForFullBlock(ctx context.Context, identity Identity
 	if !ok {
 		return ErrPeerNameNotFound
 	}
-	listener, err := NewEventListener(ctx, c.Crypto, identity, *ep, channelId, EventTypeFullBlock)
+	listener, err := newEventListener(ctx, c.Crypto, identity, *ep, channelId, EventTypeFullBlock)
 	if err != nil {
 		return err
 	}
@@ -621,7 +620,7 @@ func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Iden
 	if !ok {
 		return ErrPeerNameNotFound
 	}
-	listener, err := NewEventListener(ctx, c.Crypto, identity, *ep, channelId, EventTypeFiltered)
+	listener, err := newEventListener(ctx, c.Crypto, identity, *ep, channelId, EventTypeFiltered)
 	if err != nil {
 		return err
 	}
@@ -678,50 +677,14 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 	default:
 		return nil, ErrInvalidAlgorithmFamily
 	}
-	/*
-		peers := make(map[string]*Peer)
-		for name, p := range config.Peers {
-			newPeer, err := NewPeerFromConfig(p, crypto)
-			if err != nil {
-				return nil, err
-			}
-			newPeer.Name = name
-			newPeer.OrgName = p.OrgName
-			peers[name] = newPeer
-			logger.Debugf("Create the endorserpeer connection is successful : %s", name)
-		}
 
-		eventPeers := make(map[string]*Peer)
-		for name, p := range config.EventPeers {
-			newEventPeer, err := NewPeerFromConfig(p, crypto)
-			if err != nil {
-				return nil, err
-			}
-			newEventPeer.Name = name
-			eventPeers[name] = newEventPeer
-			logger.Debugf("Create the eventpeer connection is successful : %s", name)
-		}
-
-		orderers := make(map[string]*Orderer)
-		for name, o := range config.Orderers {
-			newOrderer, err := NewOrdererFromConfig(o)
-			if err != nil {
-				return nil, err
-			}
-			newOrderer.Name = name
-			orderers[name] = newOrderer
-			logger.Debugf("Create the orderer connection is successful : %s", name)
-		}
-		client := FabricClient{Peers: peers, EventPeers: eventPeers, Orderers: orderers, Crypto: crypto, Channel: config.ChannelConfig, Mq: config.Mq, Log: config.Log}
-
-	*/
-	client := FabricClient{Crypto: crypto, CCofChannels: config.CCofChannels, LocalConfig: config.LocalConfig}
+	client := FabricClient{Crypto: crypto, LocalConfig: config.LocalConfig}
 	return &client, nil
 }
 
 // NewFabricClient creates new client from provided config file.
 func NewFabricClient(path string) (*FabricClient, error) {
-	config, err := NewClientConfig(path)
+	config, err := newClientConfig(path)
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +719,7 @@ func newOrdererHandle(ccofchannels map[string][]string) (map[string][]*Orderer, 
 	oHandles := make(map[string][]*Orderer)
 
 	for channel := range ccofchannels {
-		chConfig, err = DiscoveryChannelConfig(channel)
+		chConfig, err = discoveryChannelConfig(channel)
 		if err != nil {
 			return nil, err
 		}
@@ -767,7 +730,7 @@ func newOrdererHandle(ccofchannels map[string][]string) (map[string][]*Orderer, 
 		logger.Debugf("channel %s has %d orderers", channel, len(ocs))
 
 		for name, o := range ocs {
-			oHandle, err := NewOrdererFromConfig(o)
+			oHandle, err := newOrdererFromConfig(o)
 			if err != nil {
 				logger.Errorf("connect to orderer %s failed", o.Host)
 				continue
@@ -854,14 +817,14 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 				if checkReconnect(p, ph) {
 					continue
 				}
-				c, err := NewConnection(&p)
+				c, err := newConnection(&p)
 				if err != nil {
 					logger.Errorf("connect to peer %s failed", p.Host)
 					continue
 				}
 				var pHandle Peer
 				pHandle.conn = c
-				pHandle.client = NewPeerFromConn(c)
+				pHandle.client = newPeerFromConn(c)
 				pHandle.Uri = p.Host
 				pHandles[channel][key] = append(pHandles[channel][key], &pHandle)
 				logger.Debugf("create handle to the org %s %s successful", key, p.Host)

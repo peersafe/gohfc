@@ -95,8 +95,8 @@ type ConnectionConfig struct {
 	ClientKey  string `yaml:"clientKey"`
 }
 
-// NewFabricClientConfig create config from provided yaml file in path
-func NewClientConfig(path string) (*ClientConfig, error) {
+// newFabricClientConfig create config from provided yaml file in path
+func newClientConfig(path string) (*ClientConfig, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func NewClientConfig(path string) (*ClientConfig, error) {
 }
 
 // NewCAConfig create new Fabric CA config from provided yaml file in path
-func NewCAConfig(path string) (*CAConfig, error) {
+func newCAConfig(path string) (*CAConfig, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err

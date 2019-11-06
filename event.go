@@ -364,7 +364,7 @@ func (e *EventListener) createSeekEnvelope(start *orderer.SeekPosition, stop *or
 	return &common.Envelope{Payload: payload, Signature: sig}, nil
 }
 
-func NewEventListener(ctx context.Context, crypto CryptoSuite, identity Identity, p Peer, channelId string, listenerType int) (*EventListener, error) {
+func newEventListener(ctx context.Context, crypto CryptoSuite, identity Identity, p Peer, channelId string, listenerType int) (*EventListener, error) {
 	if crypto == nil {
 		return nil, fmt.Errorf("cryptoSuite cannot be nil")
 	}

@@ -34,7 +34,7 @@ var (
 func InitSDK(configPath string) error {
 	// initialize Fabric client
 	var err error
-	clientConfig, err := NewClientConfig(configPath)
+	clientConfig, err := newClientConfig(configPath)
 	if err != nil {
 		return err
 	}
@@ -45,11 +45,11 @@ func InitSDK(configPath string) error {
 		return err
 	}
 
-	if err = NewTLSCertInfo(handler.client); err != nil {
+	if err = newTLSCertInfo(handler.client); err != nil {
 		return err
 	}
 
-	if err = NewDiscoveryClient(clientConfig.DiscoveryPeers, clientConfig); err != nil {
+	if err = newDiscoveryClient(clientConfig.DiscoveryPeers, clientConfig); err != nil {
 		return err
 	}
 
@@ -65,24 +65,19 @@ func InitSDK(configPath string) error {
 		handler.client.Peers = peers
 	}
 
-	mspPath := handler.client.MspConfigPath
+	mspPath := clientConfig.MspConfigPath
 	if mspPath == "" {
 		return fmt.Errorf("config mspPath is empty")
 	}
-	cert, prikey, err := FindCertAndKeyFile(mspPath)
+	cert, prikey, err := findCertAndKeyFile(mspPath)
 	if err != nil {
 		return err
 	}
-	handler.identity, err = LoadCertFromFile(cert, prikey)
+	handler.identity, err = loadCertFromFile(cert, prikey)
 	if err != nil {
 		return err
 	}
-	handler.identity.MspId = handler.client.LocalMspId
-	/*
-		if err := parsePolicy(); err != nil {
-			return fmt.Errorf("parsePolicy err: %s\n", err.Error())
-		}
-	*/
+	handler.identity.MspId = clientConfig.LocalMspId
 
 	return err
 }
@@ -92,31 +87,18 @@ func GetHandler() *sdkHandler {
 	return &handler
 }
 
-// GetChaincodeName get the channel's chaincode name
-//func GetChaincodeName() string {
-//	return handler.client.Channel.ChaincodeName
-//}
-
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
-	//	peerNames := getSendPeerName()
-	//orderName := getSendOrderName()
-	//if len(peerNames) == 0 || orderName == "" {
-	//	return nil, fmt.Errorf("config peer order is err")
-	//}
 	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
 	if err != nil {
 		return nil, err
 	}
+
 	return sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, "")
 }
 
 // Query query cc  ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
-	//peerNames := getSendPeerName()
-	//if len(peerNames) == 0 {
-	//	return nil, fmt.Errorf("config peer order is err")
-	//}
 	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
 	if err != nil {
 		return nil, err
@@ -127,11 +109,6 @@ func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) (
 
 // Query query qscc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryResponse, error) {
-	//peerNames := getSendPeerName()
-	//if len(peerNames) == 0 {
-	//	return nil, fmt.Errorf("config peer order is err")
-	//}
-
 	mspId := handler.client.LocalMspId
 	if channelName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or mspid is empty")
@@ -364,7 +341,7 @@ type KeyValue struct {
 	Value string `json:"value"` //存储数据的value
 }
 
-func SetArgsTxid(txid string, args *[]string) {
+func setArgsTxid(txid string, args *[]string) {
 	if len(*args) == 2 && (*args)[0] == "SaveData" {
 		var invokeRequest KeyValue
 		if err := json.Unmarshal([]byte((*args)[1]), &invokeRequest); err != nil {

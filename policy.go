@@ -41,7 +41,7 @@ func defaultPolicy(mspid string) (*common.SignaturePolicyEnvelope, error) {
 	return p, nil
 }
 
-func CollectionConfigToPolicy(col []CollectionConfig) ([]*common.CollectionConfig, error) {
+func collectionConfigToPolicy(col []CollectionConfig) ([]*common.CollectionConfig, error) {
 	// validation. Same names are not allowed, min/max peer count must be =>0, at least one org
 	collectionNames := make(map[string]bool)
 	for _, c := range col {

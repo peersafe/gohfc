@@ -50,8 +50,8 @@ func (p *Peer) Endorse(resp chan *PeerResponse, prop *peer.SignedProposal) error
 	return nil
 }
 
-// NewPeerFromConfig creates new peer from provided config
-func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) {
+// newPeerFromConfig creates new peer from provided config
+func newPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) {
 	p := Peer{Uri: conf.Host, caPath: conf.TlsPath}
 	if !conf.UseTLS {
 		p.Opts = []grpc.DialOption{grpc.WithInsecure()}
@@ -108,7 +108,7 @@ func NewPeerFromConfig(conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) 
 	return &p, nil
 }
 
-func NewConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
+func newConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
 	var opts []grpc.DialOption
 	if !conf.UseTLS {
 		opts = append(opts, grpc.WithInsecure())
@@ -176,6 +176,6 @@ func NewConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-func NewPeerFromConn(c *grpc.ClientConn) peer.EndorserClient {
+func newPeerFromConn(c *grpc.ClientConn) peer.EndorserClient {
 	return peer.NewEndorserClient(c)
 }

@@ -12,7 +12,7 @@ type tlsCertInfo struct {
 
 var baseTLSCertInfo tlsCertInfo
 
-func NewTLSCertInfo(fabClient *FabricClient) error {
+func newTLSCertInfo(fabClient *FabricClient) error {
 	if nil == fabClient.Crypto {
 		return errors.New("the cryptoSuite is empty")
 	}

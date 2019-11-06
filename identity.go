@@ -120,7 +120,7 @@ func UnmarshalIdentity(data string) (*Identity, error) {
 }
 
 // LoadCertFromFile read public key (pk) and private/secret kye (sk) from file system and return new Identity
-func LoadCertFromFile(pk, sk string) (*Identity, error) {
+func loadCertFromFile(pk, sk string) (*Identity, error) {
 	cf, err := ioutil.ReadFile(pk)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func LoadCertFromFile(pk, sk string) (*Identity, error) {
 	return &Identity{Certificate: crt, PrivateKey: key}, nil
 }
 
-func FindCertAndKeyFile(msppath string) (string, string, error) {
+func findCertAndKeyFile(msppath string) (string, string, error) {
 	findCert := func(path string) (string, error) {
 		list, err := ioutil.ReadDir(path)
 		if err != nil {
