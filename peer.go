@@ -40,13 +40,14 @@ type PeerResponse struct {
 }
 
 // Endorse sends single transaction to single peer.
-func (p *Peer) Endorse(resp chan *PeerResponse, prop *peer.SignedProposal) {
+func (p *Peer) Endorse(resp chan *PeerResponse, prop *peer.SignedProposal) error {
 	proposalResp, err := p.client.ProcessProposal(context.Background(), prop)
 	if err != nil {
 		resp <- &PeerResponse{Response: nil, Name: p.Name, Err: err}
-		return
+		return err
 	}
 	resp <- &PeerResponse{Response: proposalResp, Name: p.Name, Err: nil}
+	return nil
 }
 
 // NewPeerFromConfig creates new peer from provided config
@@ -161,7 +162,11 @@ func NewConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
 		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
+			grpc.MaxCallSendMsgSize(maxSendMsgSize)),
+		grpc.WithTimeout(time.Second*30),
+		grpc.WithBackoffConfig(grpc.BackoffConfig{
+			MaxDelay: time.Second * 10,
+		}))
 
 	conn, err := grpc.Dial(conf.Host, opts...)
 	if err != nil {

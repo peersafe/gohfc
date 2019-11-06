@@ -163,7 +163,11 @@ func NewOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 		grpc.WithTimeout(10*time.Second),
 		grpc.WithDefaultCallOptions(
 			grpc.MaxCallRecvMsgSize(maxRecvMsgSize),
-			grpc.MaxCallSendMsgSize(maxSendMsgSize)))
+			grpc.MaxCallSendMsgSize(maxSendMsgSize)),
+		grpc.WithTimeout(time.Second*30),
+		grpc.WithBackoffConfig(grpc.BackoffConfig{
+			MaxDelay: time.Second * 10,
+		}))
 	c, err := grpc.Dial(o.Uri, o.Opts...)
 	if err != nil {
 		return nil, err

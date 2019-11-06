@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/pem"
+	"fmt"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -16,6 +17,7 @@ import (
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/msp"
 	"github.com/hyperledger/fabric/protos/peer"
+	"google.golang.org/grpc/connectivity"
 )
 
 // TransactionId represents transaction identifier. TransactionId is the unique transaction number.
@@ -200,43 +202,149 @@ func sendToPeers(peers []*Peer, prop *peer.SignedProposal) []*PeerResponse {
 	return resp
 }
 
-func sendToEndorserGroup(prop *peer.SignedProposal, channel string, chaincode string) []*PeerResponse {
+func sendToEndorserGroup(prop *peer.SignedProposal, channel, chaincode string) ([]*PeerResponse, error) {
+	var resp []*PeerResponse
+
 	egs, ok := endorserGroups[channel+chaincode]
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
 	}
 	targetEG := generateRangeNum(0, len(egs))
 	eg := egs[targetEG]
-	num := len(eg)
+	ch := make(chan *PeerResponse, len(eg))
+
+	go func() {
+		for _, g := range eg {
+			peers := getPeerHandleByGroup(channel, g)
+			for _, p := range peers {
+				if p.conn.GetState() != connectivity.Ready {
+					continue
+				}
+				err := p.Endorse(ch, prop)
+				if err == nil {
+					break
+				}
+			}
+		}
+		close(ch)
+	}()
+
+	for r := range ch {
+		resp = append(resp, r)
+		if len(resp) == len(eg) {
+			return resp, nil
+		}
+	}
+	resp = choosePeer(channel, prop, egs, targetEG)
+
+	if len(resp) != len(eg) {
+		return nil, fmt.Errorf("did not receive enough peer reponse")
+	}
+	return resp, nil
+}
+
+func choosePeer(channel string, prop *peer.SignedProposal, egs map[int][]string, targetEG int) []*PeerResponse {
 	ch := make(chan *PeerResponse)
-	resp := make([]*PeerResponse, 0, num)
-	for _, g := range eg {
-		peers := getPeerHandleByGroup(channel, g)
-		p := peers[generateRangeNum(0, len(peers))]
-		go p.Endorse(ch, prop)
+	var resp []*PeerResponse
+	go func() {
+		for i, eg := range egs {
+			if i == targetEG {
+				continue
+			}
+			for _, g := range eg {
+				peers := getPeerHandleByGroup(channel, g)
+				//p := peers[generateRangeNum(0, len(peers))]
+				for _, p := range peers {
+					if p.conn.GetState() != connectivity.Ready {
+						continue
+					}
+					err := p.Endorse(ch, prop)
+					if err == nil {
+						break
+					}
+				}
+			}
+		}
+		close(ch)
+	}()
+
+	for r := range ch {
+		resp = append(resp, r)
+		if len(resp) == len(egs[targetEG]) {
+			return resp
+		}
 	}
-	for i := 0; i < num; i++ {
-		resp = append(resp, <-ch)
-	}
-	close(ch)
+
 	return resp
 }
 
-func sendToOneEndorserPeer(prop *peer.SignedProposal, channel string, chaincode string) *PeerResponse {
+func sendToOneEndorserPeer(prop *peer.SignedProposal, channel string, chaincode string) (*PeerResponse, error) {
 	ch := make(chan *PeerResponse)
 
 	egs, ok := endorserGroups[channel+chaincode]
 	if !ok {
-		return nil
+		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
 	}
 	targetEG := generateRangeNum(0, len(egs))
 	eg := egs[targetEG]
-	peers := getPeerHandleByGroup(channel, eg[generateRangeNum(0, len(eg))])
-	p := peers[generateRangeNum(0, len(peers))]
-	go p.Endorse(ch, prop)
+	targetPeers := generateRangeNum(0, len(eg))
+	peers := getPeerHandleByGroup(channel, eg[targetPeers])
+
+	go func() {
+		for _, p := range peers {
+			if p.conn.GetState() != connectivity.Ready {
+				continue
+			}
+			err := p.Endorse(ch, prop)
+			if err == nil {
+				break
+			}
+		}
+		close(ch)
+	}()
+
 	resp := <-ch
-	close(ch)
-	return resp
+	if resp != nil {
+		return resp, nil
+	}
+	resp = choosePeerQuery(channel, prop, egs, targetPeers)
+	if resp == nil {
+		return nil, fmt.Errorf("all peers are not available")
+	}
+	return resp, nil
+}
+
+func choosePeerQuery(channel string, prop *peer.SignedProposal, egs map[int][]string, targetPeers int) *PeerResponse {
+	ch := make(chan *PeerResponse)
+
+	go func() {
+		for _, eg := range egs {
+			for _, g := range eg {
+				if g == eg[targetPeers] {
+					continue
+				}
+				peers := getPeerHandleByGroup(channel, g)
+				for _, p := range peers {
+					if p.conn.GetState() != connectivity.Ready {
+						continue
+					}
+					err := p.Endorse(ch, prop)
+					if err == nil {
+						break
+					}
+				}
+			}
+		}
+		close(ch)
+	}()
+
+	for r := range ch {
+		if r != nil {
+			return r
+		}
+	}
+
+	return nil
 }
 
 func createTransactionProposal(identity Identity, cc ChainCode, crypto CryptoSuite) (*transactionProposal, error) {

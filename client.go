@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/peersafe/gohfc/parseBlock"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/discovery"
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
-	"github.com/peersafe/gohfc/parseBlock"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -433,9 +434,9 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode) ([]*QueryRe
 	}
 
 	//r := sendToPeers(execPeers, proposal)
-	r := sendToOneEndorserPeer(proposal, chainCode.ChannelId, chainCode.Name)
-	if r == nil {
-		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
+	r, err := sendToOneEndorserPeer(proposal, chainCode.ChannelId, chainCode.Name)
+	if err != nil {
+		return nil, err
 	}
 
 	response := make([]*QueryResponse, 1)
@@ -501,9 +502,9 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 	if err != nil {
 		return nil, err
 	}
-	peerResponse := sendToEndorserGroup(proposal, chainCode.ChannelId, chainCode.Name)
-	if peerResponse == nil {
-		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
+	peerResponse, err := sendToEndorserGroup(proposal, chainCode.ChannelId, chainCode.Name)
+	if err != nil {
+		return nil, err
 	}
 	transaction, err := createTransaction(prop.proposal, peerResponse)
 	if err != nil {
