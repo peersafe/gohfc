@@ -788,6 +788,8 @@ func newOrdererHandle(ccofchannels map[string][]string) (map[string][]*Orderer, 
 
 // TODO: handle multi chaincodes
 func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]ConnectionConfig, error) {
+	egMsp := make(map[string]string)
+
 	eps, err := DiscoveryEndorsePolicy(channel, chaincodes, nil)
 	if err != nil {
 		return nil, err
@@ -801,6 +803,7 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 			logger.Debugf("org %s has %d available peers", key, len(egs))
 			for _, eg := range egs {
 				logger.Debugf("endorser msp id is %s and endpoint is %s", eg.MSPID, eg.Endpoint)
+				egMsp[key] = eg.MSPID
 				// get the peer's root tls
 				tlsInfo := chConfig.Msps[eg.MSPID].TlsRootCerts
 				// construct the connection config for the peer
@@ -810,7 +813,7 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 				cConfig.TLSInfo = tlsInfo
 				cConfig.UseTLS = true
 				// one key may have multi peers
-				pConnConfigs[key] = append(pConnConfigs[key], cConfig)
+				pConnConfigs[eg.MSPID] = append(pConnConfigs[eg.MSPID], cConfig)
 			}
 		}
 		logger.Debugf("in channel %s chaincode %s has %d layouts", channel, ep.Chaincode, len(ep.Layouts))
@@ -819,7 +822,7 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 			for key, value := range layout.QuantitiesByGroup {
 				logger.Debugf("the key is %s and value is %d in round %d", key, value, k)
 				//orRulePeerNames = append(orRulePeerNames, key)
-				endorserGroup[k] = append(endorserGroup[k], key)
+				endorserGroup[k] = append(endorserGroup[k], egMsp[key])
 			}
 		}
 		logger.Debugf("in channel %s chaincode %s has %d endorsement group", channel, ep.Chaincode, len(endorserGroup))
@@ -847,6 +850,10 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 		}
 		for key, o := range pConnConfigs {
 			for _, p := range o {
+				ph := pHandles[channel][key]
+				if checkReconnect(p, ph) {
+					continue
+				}
 				c, err := NewConnection(&p)
 				if err != nil {
 					logger.Errorf("connect to peer %s failed", p.Host)
@@ -866,6 +873,15 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 	}
 
 	return pHandles, nil
+}
+
+func checkReconnect(config ConnectionConfig, peers []*Peer) bool {
+	for _, peer := range peers {
+		if peer.Uri == config.Host {
+			return true
+		}
+	}
+	return false
 }
 
 func (c FabricClient) getPeers(channel string, names []string) []*Peer {
