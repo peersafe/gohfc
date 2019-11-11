@@ -34,12 +34,13 @@ var (
 func InitSDK(configPath string) error {
 	// initialize Fabric client
 	var err error
+	logger.Debugf("************InitSDK************by:%s", configPath)
 	clientConfig, err := newClientConfig(configPath)
 	if err != nil {
 		return err
 	}
-	logger.Debugf("************InitSDK************by: %s", configPath)
 
+	logger.Debug("try to new fabric client from config")
 	handler.client, err = NewFabricClientFromConfig(*clientConfig)
 	if err != nil {
 		return err
@@ -49,16 +50,19 @@ func InitSDK(configPath string) error {
 		return err
 	}
 
+	logger.Debug("try to new discovery client")
 	if err = newDiscoveryClient(clientConfig.DiscoveryPeers, clientConfig); err != nil {
 		return err
 	}
 
+	logger.Debug("try to new orderer handle")
 	if orderers, err := newOrdererHandle(clientConfig.CCofChannels); err != nil {
 		return err
 	} else {
 		handler.client.Orderers = orderers
 	}
 
+	logger.Debug("try to new peer handle")
 	if peers, err := newPeerHandle(clientConfig.CCofChannels); err != nil {
 		return err
 	} else {

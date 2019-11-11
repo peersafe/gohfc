@@ -34,6 +34,14 @@ type FabricClient struct {
 var chConfig *discovery.ConfigResult
 
 // endorser groups for channel with chaincode
+// the first map's key is the channel name add chaincode name, and the value is the endorsement policy, which is also the map struct
+// the seconde map's key is the number of the endorsement policy, and the value is the detailed orgs' name, which is the slice struct
+//                            |---0 [org1]
+//                            |---1 [org2]     org1 or org2 or org3 for cc1
+//              |----cc1------|---2 [org3]
+// channel------|
+//              |----cc2------|---0 [org1 & org2]   (org1 and org2) or org3 for cc2
+//                            |---1 [org3]
 var endorserGroups map[string]map[int][]string
 
 func init() {
@@ -501,7 +509,7 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 	if err != nil {
 		return nil, err
 	}
-	peerResponse, err := sendToEndorserGroup(proposal, chainCode.ChannelId, chainCode.Name)
+	peerResponse, err := sendToEndorserGroups(proposal, chainCode.ChannelId, chainCode.Name)
 	if err != nil {
 		return nil, err
 	}

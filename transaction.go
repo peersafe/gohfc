@@ -9,6 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"time"
 
@@ -202,80 +203,118 @@ func sendToPeers(peers []*Peer, prop *peer.SignedProposal) []*PeerResponse {
 	return resp
 }
 
-func sendToEndorserGroup(prop *peer.SignedProposal, channel, chaincode string) ([]*PeerResponse, error) {
-	var resp []*PeerResponse
-
-	egs, ok := endorserGroups[channel+chaincode]
+// sendToEndorserGroups send proposal to all peers according to the endorsement and wait for there response.
+// First get the endorsement by the channle and chaincode, which is presented by groups.
+// And then select one group randomly from the endorsement to endorse prop. If the group fails, traverse
+// all the groups to get the peers' response, and it will skip the previous random group.
+func sendToEndorserGroups(prop *peer.SignedProposal, channel, chaincode string) ([]*PeerResponse, error) {
+	logger.Debugf("endorse for %s(channel) and %s(chaincode)", channel, chaincode)
+	groups, ok := endorserGroups[channel+chaincode]
 	if !ok {
-		return nil, fmt.Errorf("make sure the chaincode and channel are correct")
+		return nil, fmt.Errorf("determine the correctness of the channel and chaincode name")
 	}
-	targetEG := generateRangeNum(0, len(egs))
-	eg := egs[targetEG]
-	ch := make(chan *PeerResponse, len(eg))
-
-	go func() {
-		for _, g := range eg {
-			peers := getPeerHandleByGroup(channel, g)
-			for _, p := range peers {
-				if p.conn.GetState() != connectivity.Ready {
-					continue
-				}
-				err := p.Endorse(ch, prop)
-				if err == nil {
-					break
-				}
-			}
-		}
-		close(ch)
-	}()
-
-	for r := range ch {
-		resp = append(resp, r)
-		if len(resp) == len(eg) {
-			return resp, nil
-		}
+	i := generateRangeNum(0, len(groups))
+	orgs := groups[i]
+	logger.Debugf("the endorsement has %d policies, and uses no.%d, which needs %d orgs' endorsement",
+		          len(groups), i, len(orgs))
+	
+	if resps, err := waitGroupEndorser(prop, channel, orgs); err != nil {
+		logger.Errorf("wait group endorser failed: %s", err.Error())
+		return traverseEndoserGroups(prop, channel, groups, i)
+	} else {
+		return resps, nil
 	}
-	resp = choosePeer(channel, prop, egs, targetEG)
-
-	if len(resp) != len(eg) {
-		return nil, fmt.Errorf("did not receive enough peer reponse")
-	}
-	return resp, nil
 }
 
-func choosePeer(channel string, prop *peer.SignedProposal, egs map[int][]string, targetEG int) []*PeerResponse {
-	ch := make(chan *PeerResponse)
-	var resp []*PeerResponse
-	go func() {
-		for i, eg := range egs {
-			if i == targetEG {
-				continue
-			}
-			for _, g := range eg {
-				peers := getPeerHandleByGroup(channel, g)
-				//p := peers[generateRangeNum(0, len(peers))]
-				for _, p := range peers {
-					if p.conn.GetState() != connectivity.Ready {
-						continue
-					}
-					err := p.Endorse(ch, prop)
-					if err == nil {
-						break
-					}
-				}
-			}
+// traverseEndoserGroups traverse all the groups to endorse the prop until the group gets all the responses
+// fulfil the endorsement.
+// If usedGroup is greater than 0, the process will skip this group.
+func traverseEndoserGroups(prop *peer.SignedProposal, channel string,  allGroups map[int][]string, usedGroup int) ([]*PeerResponse, error) {
+	for i, orgs := range allGroups {
+		if usedGroup >= 0 && i == usedGroup {
+			logger.Infof("policy %s's peers are not available, enter the traverse process", orgs)
+			continue
 		}
-		close(ch)
-	}()
 
-	for r := range ch {
-		resp = append(resp, r)
-		if len(resp) == len(egs[targetEG]) {
-			return resp
+		resps, err := waitGroupEndorser(prop, channel, orgs)
+		if err == nil {
+			return resps, nil
+		} else {
+			logger.Errorf("wait group endorser failed: %s", err.Error())
 		}
 	}
 
-	return resp
+	return nil, errors.New("do not collect enough transaction signatures")
+}
+
+// waitGroupEndorser use one endorsement group to endorse the proposal,
+// The group may have more than one org, and all the orgs endorse the prop asynchronously.
+// If get the expected num of responses, which is just equal to the number of orgs in this group, return all the responses,
+// otherwise the group fails to endorse the proposal.
+// there is no difference in what order results will e returned and is `p.Endorse()` guarantee that there will be
+// response, so no need of complex synchronisation and wait groups
+func waitGroupEndorser(prop *peer.SignedProposal, channel string, orgs []string) ([]*PeerResponse, error) {
+	num := len(orgs)
+	ch := make(chan *PeerResponse, num)
+	resps := make([]*PeerResponse, 0, num)
+	
+	for _, org := range orgs {
+		go groupEndorser(prop, channel, org, ch)
+	}
+
+	for i := 0; i < num; i++ {
+		resp := <-ch
+		if resp.Err == nil {
+			resps = append(resps, resp)
+		} else {
+			logger.Errorf("%s endorse failed: %s", resp.Name, resp.Err)
+		}
+	}
+/*
+	for resp := range ch {
+		if resp.Err == nil {
+			resps = append(resps, resp)
+			if len(resps) == num {
+				isMatched = true
+				break
+			}
+		} else {
+			logger.Errorf("peer %s endorse failed: %s", resp.Name, resp.Err)
+			//break
+		}
+	}
+ */
+	close(ch)
+
+	if len(resps) == num {
+		return resps, nil
+	} else {
+		return nil, fmt.Errorf("failed to endorser with orgs: %s", orgs)
+	}
+}
+
+// groupEndorser send prop to peers belongs to the org sequentially, until get the correct response.
+// If the connection state to the peer is not ready, it will skip the peer and use the next one peer.
+// If all the peers in this org are not available, send an error to the channel, which does not have any Response.
+func groupEndorser(prop *peer.SignedProposal, channel, org string, ch chan *PeerResponse) {
+	peers := getPeerHandleByGroup(channel, org)
+	logger.Debugf("org %s has %d peers", org, len(peers))
+	for _, p := range peers {
+		logger.Debugf("try to use peer %s to endorse tx", p.Uri)
+		if p.conn.GetState() != connectivity.Ready {
+			logger.Errorf("peer %s has no active connection", p.Uri)
+			continue
+		}
+		if err := p.Endorse(ch, prop); err == nil {
+			return
+		}
+	}
+
+	ch <- &PeerResponse{Response: nil,
+		Name: org,
+		Err: fmt.Errorf("group %s has no available endorsement in channle %s", org, channel)}
+
+	return
 }
 
 func sendToOneEndorserPeer(prop *peer.SignedProposal, channel string, chaincode string) (*PeerResponse, error) {
