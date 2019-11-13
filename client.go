@@ -821,7 +821,7 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 
 func newPeerHandle(clientConfig *ClientConfig) (map[string]map[string][]*Peer, error) {
 	pHandles := make(map[string]map[string][]*Peer)
-	clientChan := make(chan *ConnectionConfig)
+	clientChan := make(chan ConnectionConfig)
 	var sy = &sync.Mutex{}
 
 	for channel, chaincodes := range clientConfig.CCofChannels {
@@ -841,7 +841,7 @@ func newPeerHandle(clientConfig *ClientConfig) (map[string]map[string][]*Peer, e
 					logger.Errorf("connect to peer %s failed", p.Host)
 					if clientConfig.IsReConnect {
 						go peerReConnect(clientConfig.ReConnTimeInterval, clientChan, sy)
-						clientChan <- &p
+						clientChan <- p
 					}
 					continue
 				}

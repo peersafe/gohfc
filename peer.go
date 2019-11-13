@@ -178,7 +178,7 @@ func newConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
 }
 
 //When the first connected peer fails, peerReconnect keeps reconnecting peer
-func peerReConnect(timeInterval int, clientChan chan *ConnectionConfig, sy *sync.Mutex) {
+func peerReConnect(timeInterval int, clientChan chan ConnectionConfig, sy *sync.Mutex) {
 	conf := <-clientChan
 
 	var pHandler Peer
@@ -186,14 +186,14 @@ func peerReConnect(timeInterval int, clientChan chan *ConnectionConfig, sy *sync
 	var err error
 
 	tick := time.NewTicker(time.Second * time.Duration(timeInterval))
-	logger.Infof("start reconnecting peer: %s", conf.Host)
+	logger.Infof("start reconnecting peer %s of %s", conf.Host, conf.ChannelId)
 end:
 	for {
 		select {
 		case <-tick.C:
-			c, err = newConnection(conf)
+			c, err = newConnection(&conf)
 			if err != nil {
-				logger.Infof("%s reconnection failed, restart connection", conf.Host)
+				logger.Infof("%s: %s reconnection failed, restart connection", conf.ChannelId, conf.Host)
 				continue
 			} else {
 				break end
@@ -203,12 +203,15 @@ end:
 
 	sy.Lock()
 	defer sy.Unlock()
-
+	if checkReconnect(conf, handler.client.Peers[conf.ChannelId][conf.MSPId]) {
+		c.Close()
+		return
+	}
 	pHandler.conn = c
 	pHandler.client = newPeerFromConn(c)
 	pHandler.Uri = conf.Host
 	handler.client.Peers[conf.ChannelId][conf.MSPId] = append(handler.client.Peers[conf.ChannelId][conf.MSPId], &pHandler)
-	logger.Infof("%s reconnected successfully", conf.Host)
+	logger.Infof("%s: %s reconnected successfully", conf.ChannelId, conf.Host)
 }
 
 func newPeerFromConn(c *grpc.ClientConn) peer.EndorserClient {
