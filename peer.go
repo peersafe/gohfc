@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"sync"
 )
 
 // Peer expose API's to communicate with peer
@@ -174,6 +175,40 @@ func newConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
+}
+
+//When the first connected peer fails, peerReconnect keeps reconnecting peer
+func peerReConnect(clientChan chan *ConnectionConfig, sy *sync.Mutex) {
+	conf := <-clientChan
+
+	var pHandler Peer
+	var c *grpc.ClientConn
+	var err error
+
+	tick := time.NewTicker(time.Second * 30)
+	logger.Infof("start reconnecting peer: %s", conf.Host)
+end:
+	for {
+		select {
+		case <-tick.C:
+			c, err = newConnection(conf)
+			if err != nil {
+				logger.Infof("%s reconnection failed, restart connection", conf.Host)
+				continue
+			} else {
+				break end
+			}
+		}
+	}
+
+	sy.Lock()
+	defer sy.Unlock()
+
+	pHandler.conn = c
+	pHandler.client = newPeerFromConn(c)
+	pHandler.Uri = conf.Host
+	handler.client.Peers[conf.ChannelId][conf.MSPId] = append(handler.client.Peers[conf.ChannelId][conf.MSPId], &pHandler)
+	logger.Infof("%s reconnected successfully", conf.Host)
 }
 
 func newPeerFromConn(c *grpc.ClientConn) peer.EndorserClient {

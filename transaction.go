@@ -216,8 +216,8 @@ func sendToEndorserGroups(prop *peer.SignedProposal, channel, chaincode string) 
 	i := generateRangeNum(0, len(groups))
 	orgs := groups[i]
 	logger.Debugf("the endorsement has %d policies, and uses no.%d, which needs %d orgs' endorsement",
-		          len(groups), i, len(orgs))
-	
+		len(groups), i, len(orgs))
+
 	if resps, err := waitGroupEndorser(prop, channel, orgs); err != nil {
 		logger.Errorf("wait group endorser failed: %s", err.Error())
 		return traverseEndoserGroups(prop, channel, groups, i)
@@ -229,7 +229,7 @@ func sendToEndorserGroups(prop *peer.SignedProposal, channel, chaincode string) 
 // traverseEndoserGroups traverse all the groups to endorse the prop until the group gets all the responses
 // fulfil the endorsement.
 // If usedGroup is greater than 0, the process will skip this group.
-func traverseEndoserGroups(prop *peer.SignedProposal, channel string,  allGroups map[int][]string, usedGroup int) ([]*PeerResponse, error) {
+func traverseEndoserGroups(prop *peer.SignedProposal, channel string, allGroups map[int][]string, usedGroup int) ([]*PeerResponse, error) {
 	for i, orgs := range allGroups {
 		if usedGroup >= 0 && i == usedGroup {
 			logger.Infof("policy %s's peers are not available, enter the traverse process", orgs)
@@ -257,7 +257,7 @@ func waitGroupEndorser(prop *peer.SignedProposal, channel string, orgs []string)
 	num := len(orgs)
 	ch := make(chan *PeerResponse, num)
 	resps := make([]*PeerResponse, 0, num)
-	
+
 	for _, org := range orgs {
 		go groupEndorser(prop, channel, org, ch)
 	}
@@ -270,20 +270,6 @@ func waitGroupEndorser(prop *peer.SignedProposal, channel string, orgs []string)
 			logger.Errorf("%s endorse failed: %s", resp.Name, resp.Err)
 		}
 	}
-/*
-	for resp := range ch {
-		if resp.Err == nil {
-			resps = append(resps, resp)
-			if len(resps) == num {
-				isMatched = true
-				break
-			}
-		} else {
-			logger.Errorf("peer %s endorse failed: %s", resp.Name, resp.Err)
-			//break
-		}
-	}
- */
 	close(ch)
 
 	if len(resps) == num {
@@ -312,7 +298,7 @@ func groupEndorser(prop *peer.SignedProposal, channel, org string, ch chan *Peer
 
 	ch <- &PeerResponse{Response: nil,
 		Name: org,
-		Err: fmt.Errorf("group %s has no available endorsement in channle %s", org, channel)}
+		Err:  fmt.Errorf("group %s has no available endorsement in channle %s", org, channel)}
 
 	return
 }

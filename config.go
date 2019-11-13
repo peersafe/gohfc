@@ -88,6 +88,8 @@ type ConnectionConfig struct {
 	Host       string `yaml:"host"`
 	UseTLS     bool   `yaml:"useTLS"`
 	TlsPath    string `yaml:"tlsPath"`
+	ChannelId  string
+	MSPId      string
 	TLSInfo    [][]byte
 	DomainName string `yaml:"domainName"`
 	TlsMutual  bool   `yaml:"tlsMutual"`

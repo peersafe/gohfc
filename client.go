@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/fabric/protos/discovery"
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
+	"sync"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -783,6 +784,8 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 				//cConfig.OrgName = key
 				cConfig.TLSInfo = tlsInfo
 				cConfig.UseTLS = true
+				cConfig.ChannelId = channel
+				cConfig.MSPId = eg.MSPID
 				// one key may have multi peers
 				pConnConfigs[eg.MSPID] = append(pConnConfigs[eg.MSPID], cConfig)
 			}
@@ -812,6 +815,8 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 
 func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*Peer, error) {
 	pHandles := make(map[string]map[string][]*Peer)
+	clientChan := make(chan *ConnectionConfig)
+	var sy = &sync.Mutex{}
 
 	for channel, chaincodes := range ccofchannels {
 		pHandles[channel] = make(map[string][]*Peer)
@@ -828,6 +833,8 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 				c, err := newConnection(&p)
 				if err != nil {
 					logger.Errorf("connect to peer %s failed", p.Host)
+					go peerReConnect(clientChan, sy)
+					clientChan <- &p
 					continue
 				}
 				var pHandle Peer
@@ -842,7 +849,7 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 			return nil, errors.New("no available peer handle")
 		}
 	}
-
+	close(clientChan)
 	return pHandles, nil
 }
 
