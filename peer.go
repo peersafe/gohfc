@@ -11,13 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"sync"
 	"time"
 
 	"github.com/hyperledger/fabric/protos/peer"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"sync"
 )
 
 // Peer expose API's to communicate with peer
@@ -178,14 +178,14 @@ func newConnection(conf *ConnectionConfig) (*grpc.ClientConn, error) {
 }
 
 //When the first connected peer fails, peerReconnect keeps reconnecting peer
-func peerReConnect(clientChan chan *ConnectionConfig, sy *sync.Mutex) {
+func peerReConnect(timeInterval int, clientChan chan *ConnectionConfig, sy *sync.Mutex) {
 	conf := <-clientChan
 
 	var pHandler Peer
 	var c *grpc.ClientConn
 	var err error
 
-	tick := time.NewTicker(time.Second * 30)
+	tick := time.NewTicker(time.Second * time.Duration(timeInterval))
 	logger.Infof("start reconnecting peer: %s", conf.Host)
 end:
 	for {

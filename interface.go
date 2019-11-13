@@ -51,19 +51,19 @@ func InitSDK(configPath string) error {
 	}
 
 	logger.Debug("try to new discovery client")
-	if err = newDiscoveryClient(clientConfig.DiscoveryPeers, clientConfig); err != nil {
+	if err = newDiscoveryClient(clientConfig); err != nil {
 		return err
 	}
 
 	logger.Debug("try to new orderer handle")
-	if orderers, err := newOrdererHandle(clientConfig.CCofChannels); err != nil {
+	if orderers, err := newOrdererHandle(clientConfig); err != nil {
 		return err
 	} else {
 		handler.client.Orderers = orderers
 	}
 
 	logger.Debug("try to new peer handle")
-	if peers, err := newPeerHandle(clientConfig.CCofChannels); err != nil {
+	if peers, err := newPeerHandle(clientConfig); err != nil {
 		return err
 	} else {
 		handler.client.Peers = peers

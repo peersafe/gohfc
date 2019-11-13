@@ -33,10 +33,12 @@ type ClientConfig struct {
 //}
 
 type LocalConfig struct {
-	MspConfigPath string `yaml:"mspConfigPath"`
-	LocalMspId    string `yaml:"localMspId"`
-	ClientCert    string `yaml:"clientCert"`
-	ClientKey     string `yaml:"clientKey"`
+	IsReConnect        bool   `yaml:"isReConnect"`
+	ReConnTimeInterval int    `yaml:"reConnTimeInterval"`
+	MspConfigPath      string `yaml:"mspConfigPath"`
+	LocalMspId         string `yaml:"localMspId"`
+	ClientCert         string `yaml:"clientCert"`
+	ClientKey          string `yaml:"clientKey"`
 }
 
 type ChaincodePolicy struct {

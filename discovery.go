@@ -24,13 +24,13 @@ var (
 	tlsHashs         map[string][]byte
 )
 
-func newDiscoveryClient(conf map[string]ConnectionConfig, clientConfig *ClientConfig) error {
+func newDiscoveryClient(clientConfig *ClientConfig) error {
 	signer = discoveryClient.NewSign(clientConfig.MspConfigPath, clientConfig.LocalMspId)
 	if signer == nil {
 		return errors.New("construct signer failed")
 	}
 
-	for key, value := range conf {
+	for key, value := range clientConfig.DiscoveryPeers {
 		grpcConn, err := newConnection(&value)
 		if err != nil {
 			logger.Errorf("make grpc connection to %s failed: %s", key, err.Error())

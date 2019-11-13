@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 
 	"github.com/peersafe/gohfc/parseBlock"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/hyperledger/fabric/protos/discovery"
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
-	"sync"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -723,11 +723,13 @@ func getOrderersFromChannelConfig(cr *discovery.ConfigResult) (map[string]Ordere
 	return ocs, nil
 }
 
-func newOrdererHandle(ccofchannels map[string][]string) (map[string][]*Orderer, error) {
+func newOrdererHandle(clientConfig *ClientConfig) (map[string][]*Orderer, error) {
 	var err error
+	var sy = &sync.Mutex{}
 	oHandles := make(map[string][]*Orderer)
+	ordererChan := make(chan OrdererConfig)
 
-	for channel := range ccofchannels {
+	for channel := range clientConfig.CCofChannels {
 		chConfig, err = discoveryChannelConfig(channel)
 		if err != nil {
 			return nil, err
@@ -742,6 +744,10 @@ func newOrdererHandle(ccofchannels map[string][]string) (map[string][]*Orderer, 
 			oHandle, err := newOrdererFromConfig(o)
 			if err != nil {
 				logger.Errorf("connect to orderer %s failed", o.Host)
+				if clientConfig.IsReConnect {
+					go ordererReConnect(clientConfig.ReConnTimeInterval, ordererChan, name, channel, sy)
+					ordererChan <- o
+				}
 				continue
 			}
 			oHandle.Name = name
@@ -813,12 +819,12 @@ func getPeersFromDiscovery(channel string, chaincodes []string) (map[string][]Co
 	return pConnConfigs, nil
 }
 
-func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*Peer, error) {
+func newPeerHandle(clientConfig *ClientConfig) (map[string]map[string][]*Peer, error) {
 	pHandles := make(map[string]map[string][]*Peer)
 	clientChan := make(chan *ConnectionConfig)
 	var sy = &sync.Mutex{}
 
-	for channel, chaincodes := range ccofchannels {
+	for channel, chaincodes := range clientConfig.CCofChannels {
 		pHandles[channel] = make(map[string][]*Peer)
 		pConnConfigs, err := getPeersFromDiscovery(channel, chaincodes)
 		if err != nil {
@@ -833,8 +839,10 @@ func newPeerHandle(ccofchannels map[string][]string) (map[string]map[string][]*P
 				c, err := newConnection(&p)
 				if err != nil {
 					logger.Errorf("connect to peer %s failed", p.Host)
-					go peerReConnect(clientChan, sy)
-					clientChan <- &p
+					if clientConfig.IsReConnect {
+						go peerReConnect(clientConfig.ReConnTimeInterval, clientChan, sy)
+						clientChan <- &p
+					}
 					continue
 				}
 				var pHandle Peer

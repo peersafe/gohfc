@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/golang/protobuf/proto"
@@ -175,4 +176,35 @@ func newOrdererFromConfig(conf OrdererConfig) (*Orderer, error) {
 	o.con = c
 	o.client = orderer.NewAtomicBroadcastClient(o.con)
 	return &o, nil
+}
+
+//When the first connected orderer fails, ordererReConnect keeps reconnecting orderer
+func ordererReConnect(timeInterval int, ordererChan chan OrdererConfig, name, channel string, sy *sync.Mutex) {
+	conf := <-ordererChan
+
+	var o *Orderer
+	var err error
+
+	tick := time.NewTicker(time.Second * time.Duration(timeInterval))
+	logger.Infof("start reconnecting peer: %s", conf.Host)
+end:
+	for {
+		select {
+		case <-tick.C:
+			o, err = newOrdererFromConfig(conf)
+			if err != nil {
+				logger.Infof("%s reconnection failed, restart connection", conf.Host)
+				continue
+			} else {
+				break end
+			}
+		}
+	}
+
+	sy.Lock()
+	defer sy.Unlock()
+
+	o.Name = name
+	handler.client.Orderers[channel] = append(handler.client.Orderers[channel], o)
+	logger.Infof("%s reconnected successfully", conf.Host)
 }
