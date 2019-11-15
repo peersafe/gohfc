@@ -24,11 +24,7 @@ type ClientConfig struct {
 type EventConfig struct {
 	CryptoConfig `yaml:"crypto"`
 	LocalConfig  `yaml:"localConfig"`
-	//Orderers       map[string]OrdererConfig    `yaml:"orderers"`
-	//Peers          map[string]PeerConfig       `yaml:"peers"`
-	EventPeers map[string]ConnectionConfig `yaml:"eventPeers"`
-	//DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
-	Channel string `yaml:"channel"` //key为channelID，value为chaincodes
+	EventPeers   map[string]ConnectionConfig `yaml:"eventPeers"`
 }
 
 type LocalConfig struct {
