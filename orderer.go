@@ -205,6 +205,6 @@ end:
 	defer sy.Unlock()
 
 	o.Name = name
-	handler.client.Orderers[channel] = append(handler.client.Orderers[channel], o)
+	apiHandler.client.Orderers[channel] = append(apiHandler.client.Orderers[channel], o)
 	logger.Infof("%s reconnected successfully", conf.Host)
 }

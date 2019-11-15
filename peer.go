@@ -203,14 +203,14 @@ end:
 
 	sy.Lock()
 	defer sy.Unlock()
-	if checkReconnect(conf, handler.client.Peers[conf.ChannelId][conf.MSPId]) {
+	if checkReconnect(conf, apiHandler.client.Peers[conf.ChannelId][conf.MSPId]) {
 		c.Close()
 		return
 	}
 	pHandler.conn = c
 	pHandler.client = newPeerFromConn(c)
 	pHandler.Uri = conf.Host
-	handler.client.Peers[conf.ChannelId][conf.MSPId] = append(handler.client.Peers[conf.ChannelId][conf.MSPId], &pHandler)
+	apiHandler.client.Peers[conf.ChannelId][conf.MSPId] = append(apiHandler.client.Peers[conf.ChannelId][conf.MSPId], &pHandler)
 	logger.Infof("%s: %s reconnected successfully", conf.ChannelId, conf.Host)
 }
 

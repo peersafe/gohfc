@@ -14,7 +14,7 @@ import (
 )
 
 func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
-	mspId := handler.client.LocalMspId
+	mspId := apiHandler.client.LocalMspId
 	if channelName == "" || chaincodeName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or chaincodeName or mspId is empty")
 	}

@@ -15,15 +15,22 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
-//sdk handler
-type sdkHandler struct {
+//apiserver sdk handler
+type APIsdkHandler struct {
 	client   *FabricClient
+	identity *Identity
+}
+
+//eventserver sdk handler
+type EventsdkHandler struct {
+	client   *EventClient
 	identity *Identity
 }
 
 var (
 	logger          = flogging.MustGetLogger("gohfc-sdk")
-	handler         sdkHandler
+	apiHandler      APIsdkHandler
+	eventHandler    EventsdkHandler
 	orgPeerMap      = make(map[string][]string)
 	orderNames      []string
 	peerNames       []string
@@ -31,22 +38,22 @@ var (
 	orRulePeerNames []string
 )
 
-func InitSDK(configPath string) error {
+func InitAPISDK(configPath string) error {
 	// initialize Fabric client
 	var err error
-	logger.Debugf("************InitSDK************by:%s", configPath)
+	logger.Debugf("************InitAPISDK************by:%s", configPath)
 	clientConfig, err := newClientConfig(configPath)
 	if err != nil {
 		return err
 	}
 
 	logger.Debug("try to new fabric client from config")
-	handler.client, err = NewFabricClientFromConfig(*clientConfig)
+	apiHandler.client, err = NewFabricClientFromConfig(*clientConfig)
 	if err != nil {
 		return err
 	}
 
-	if err = newTLSCertInfo(handler.client); err != nil {
+	if err = newTLSCertInfo(apiHandler.client); err != nil {
 		return err
 	}
 
@@ -59,14 +66,14 @@ func InitSDK(configPath string) error {
 	if orderers, err := newOrdererHandle(clientConfig); err != nil {
 		return err
 	} else {
-		handler.client.Orderers = orderers
+		apiHandler.client.Orderers = orderers
 	}
 
 	logger.Debug("try to new peer handle")
 	if peers, err := newPeerHandle(clientConfig); err != nil {
 		return err
 	} else {
-		handler.client.Peers = peers
+		apiHandler.client.Peers = peers
 	}
 
 	mspPath := clientConfig.MspConfigPath
@@ -77,22 +84,66 @@ func InitSDK(configPath string) error {
 	if err != nil {
 		return err
 	}
-	handler.identity, err = loadCertFromFile(cert, prikey)
+	apiHandler.identity, err = loadCertFromFile(cert, prikey)
 	if err != nil {
 		return err
 	}
-	handler.identity.MspId = clientConfig.LocalMspId
+	apiHandler.identity.MspId = clientConfig.LocalMspId
 
 	return err
 }
 
-// GetHandler get sdk handler
-func GetHandler() *sdkHandler {
-	return &handler
+func InitEventSDK(configPath string) error {
+	// initialize Fabric client
+	var err error
+	logger.Debugf("************InitEventSDK************by:%s", configPath)
+	eventConfig, err := newEventConfig(configPath)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("try to new event client from config")
+	eventHandler.client, err = NewEventClientFromConfig(*eventConfig)
+	if err != nil {
+		return err
+	}
+
+	logger.Debug("try to new peer handle")
+	if peers, err := newEventPeerHandle(eventConfig); err != nil {
+		return err
+	} else {
+		eventHandler.client.EventPeers = peers
+	}
+
+	mspPath := eventConfig.MspConfigPath
+	if mspPath == "" {
+		return fmt.Errorf("config mspPath is empty")
+	}
+	cert, prikey, err := findCertAndKeyFile(mspPath)
+	if err != nil {
+		return err
+	}
+	eventHandler.identity, err = loadCertFromFile(cert, prikey)
+	if err != nil {
+		return err
+	}
+	eventHandler.identity.MspId = eventConfig.LocalMspId
+
+	return err
+}
+
+// GetAPIHandler get apiserver sdk handler
+func GetAPIHandler() *APIsdkHandler {
+	return &apiHandler
+}
+
+// GetEventHandler get eventserver sdk handler
+func GetEventHandler() *EventsdkHandler {
+	return &eventHandler
 }
 
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
+func (sdk *APIsdkHandler) Invoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
 	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
 	if err != nil {
 		return nil, err
@@ -102,7 +153,7 @@ func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) 
 }
 
 // Query query cc  ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
+func (sdk *APIsdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
 	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
 	if err != nil {
 		return nil, err
@@ -112,8 +163,8 @@ func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) (
 }
 
 // Query query qscc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryResponse, error) {
-	mspId := handler.client.LocalMspId
+func (sdk *APIsdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryResponse, error) {
+	mspId := apiHandler.client.LocalMspId
 	if channelName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or mspid is empty")
 	}
@@ -129,7 +180,7 @@ func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryR
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
+func (sdk *APIsdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*common.Block, error) {
 	strBlockNum := strconv.FormatUint(blockNum, 10)
 
 	if channelName == "" {
@@ -156,7 +207,7 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 	return block, nil
 }
 
-func (sdk *sdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.ProcessedTransaction, error) {
+func (sdk *APIsdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.ProcessedTransaction, error) {
 	if channelName == "" || txid == "" {
 		return nil, fmt.Errorf("GetTransactionByTXID channelName or txidd is empty ")
 	}
@@ -182,7 +233,7 @@ func (sdk *sdkHandler) GetTransactionByTXID(txid, channelName string) (*peer.Pro
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
+func (sdk *APIsdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 	if channelName == "" {
 		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
 	}
@@ -208,14 +259,11 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
+func (sdk *EventsdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
 	args := []string{"GetChainInfo", channelName}
-	mspId := handler.client.LocalMspId
+	mspId := eventHandler.client.LocalMspId
 	if channelName == "" || mspId == "" {
 		return 0, fmt.Errorf("GetBlockHeight channelName or mspid is empty")
-	}
-	if eventName == "" {
-		return 0, fmt.Errorf("GetBlockHeight event peername is empty")
 	}
 	chaincode := ChainCode{
 		ChannelId: channelName,
@@ -224,7 +272,7 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 		Args:      args,
 	}
 
-	resps, err := sdk.client.QueryByEvent(*sdk.identity, chaincode, []string{eventName})
+	resps, err := sdk.client.QueryByEvent(*sdk.identity, chaincode)
 	if err != nil {
 		return 0, err
 	} else if len(resps) == 0 {
@@ -245,26 +293,23 @@ func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, er
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
+func (sdk *EventsdkHandler) ListenEventFullBlock(channelName string, startNum int) (chan parseBlock.Block, error) {
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFullBlock channelName is empty ")
 	}
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
+	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, startNum, channelName, ch)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-	//
-	//for d := range ch {
-	//	fmt.Println(d)
-	//}
+
 	return ch, nil
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
+func (sdk *EventsdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
 	if channelName == "" {
 		return nil, fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
 	}
@@ -304,7 +349,7 @@ func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Blo
 }
 */
 
-func (sdk *sdkHandler) GetOrdererConnect(channel string) (bool, error) {
+func (sdk *APIsdkHandler) GetOrdererConnect(channel string) (bool, error) {
 	orderName := getSendOrderName()
 	if orderName == "" {
 		return false, fmt.Errorf("config order is err")
@@ -326,7 +371,7 @@ func (sdk *sdkHandler) GetOrdererConnect(channel string) (bool, error) {
 }
 
 //解析区块
-func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
+func (sdk *APIsdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
 	blockObj := parseBlock.ParseBlock(block, 0)
 	return &blockObj, nil
 }
@@ -368,5 +413,5 @@ func setArgsTxid(txid string, args *[]string) {
 }
 
 func getPeerHandleByGroup(channel, group string) []*Peer {
-	return handler.client.Peers[channel][group]
+	return apiHandler.client.Peers[channel][group]
 }

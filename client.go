@@ -22,13 +22,18 @@ import (
 
 // FabricClient expose API's to work with Hyperledger Fabric
 type FabricClient struct {
+	Crypto   CryptoSuite
+	Peers    map[string]map[string][]*Peer
+	Orderers map[string][]*Orderer
+	LocalConfig
+}
+
+// EventClient expose API's to work with listening Fabric
+type EventClient struct {
 	Crypto     CryptoSuite
-	Peers      map[string]map[string][]*Peer
-	Orderers   map[string][]*Orderer
 	EventPeers map[string]*Peer
 	LocalConfig
 	Event *EventListener
-	//EventPort  *EventPort
 }
 
 // TODO: support multi channel
@@ -459,9 +464,9 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode) ([]*QueryRe
 	return response, nil
 }
 
-func (c *FabricClient) QueryByEvent(identity Identity, chainCode ChainCode, peers []string) ([]*QueryResponse, error) {
-	execPeers := c.getEventPeers(peers)
-	if len(peers) != len(execPeers) {
+func (c *EventClient) QueryByEvent(identity Identity, chainCode ChainCode) ([]*QueryResponse, error) {
+	execPeers := c.getEventPeers()
+	if len(execPeers) == 0 {
 		return nil, ErrPeerNameNotFound
 	}
 	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
@@ -598,33 +603,34 @@ func (c *FabricClient) QueryTransaction(identity Identity, channelId string, txI
 // To cancel listening provide context with cancellation option and call cancel.
 // User can listen for same events in same channel in multiple peers for redundancy using same `chan<- EventBlockResponse`
 // In this case every peer will send its events, so identical events may appear more than once in channel.
-func (c *FabricClient) ListenForFullBlock(ctx context.Context, identity Identity, startNum int, eventPeer, channelId string, response chan<- parseBlock.Block) error {
-	ep, ok := c.EventPeers[eventPeer]
-	if !ok {
-		return ErrPeerNameNotFound
-	}
-	listener, err := newEventListener(ctx, c.Crypto, identity, *ep, channelId, EventTypeFullBlock)
-	if err != nil {
-		return err
-	}
-	if startNum < 0 {
-		err = listener.SeekNewest()
-	} else {
-		err = listener.SeekRange(uint64(startNum), math.MaxUint64)
-	}
-	if err != nil {
-		return err
-	}
-	listener.Listen(response, nil)
+func (c *EventClient) ListenForFullBlock(ctx context.Context, identity Identity, startNum int, channelId string, response chan<- parseBlock.Block) error {
+	for _, eventpeer := range c.EventPeers {
+		listener, err := newEventListener(ctx, c.Crypto, identity, *eventpeer, channelId, EventTypeFullBlock)
+		if err != nil {
+			return err
+		}
+		if startNum < 0 {
+			err = listener.SeekNewest()
+		} else {
+			err = listener.SeekRange(uint64(startNum), math.MaxUint64)
+		}
+		if err != nil {
+			return err
+		}
+		listener.Listen(response, nil)
 
-	c.Event = listener
+		c.Event = listener
+		return nil
+	}
+
 	return nil
+
 }
 
 // ListenForFilteredBlock listen for events in blockchain. Difference with `ListenForFullBlock` is that event names
 // will be returned but NOT events data. Also full block data will not be available.
 // Other options are same as `ListenForFullBlock`.
-func (c *FabricClient) ListenForFilteredBlock(ctx context.Context, identity Identity, startNum int, eventPeer, channelId string, response chan<- EventBlockResponse) error {
+func (c *EventClient) ListenForFilteredBlock(ctx context.Context, identity Identity, startNum int, eventPeer, channelId string, response chan<- EventBlockResponse) error {
 	ep, ok := c.EventPeers[eventPeer]
 	if !ok {
 		return ErrPeerNameNotFound
@@ -688,6 +694,29 @@ func NewFabricClientFromConfig(config ClientConfig) (*FabricClient, error) {
 	}
 
 	client := FabricClient{Crypto: crypto, LocalConfig: config.LocalConfig}
+	return &client, nil
+}
+
+// NewFabricClientFromConfig create a new EventClient from EventConfig
+func NewEventClientFromConfig(config EventConfig) (*EventClient, error) {
+	var crypto CryptoSuite
+	var err error
+	switch config.CryptoConfig.Family {
+	case "ecdsa":
+		crypto, err = NewECCryptSuiteFromConfig(config.CryptoConfig)
+		if err != nil {
+			return nil, err
+		}
+	case "gm":
+		crypto, err = NewECCryptSuiteFromConfig(config.CryptoConfig)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, ErrInvalidAlgorithmFamily
+	}
+
+	client := EventClient{Crypto: crypto, LocalConfig: config.LocalConfig}
 	return &client, nil
 }
 
@@ -861,6 +890,25 @@ func newPeerHandle(clientConfig *ClientConfig) (map[string]map[string][]*Peer, e
 	return pHandles, nil
 }
 
+func newEventPeerHandle(eventConfig *EventConfig) (map[string]*Peer, error) {
+	pHandles := make(map[string]*Peer)
+
+	for name, eventpeerConfig := range eventConfig.EventPeers {
+		c, err := newConnection(&eventpeerConfig)
+		if err != nil {
+			logger.Errorf("connect to peer %s failed", eventpeerConfig.Host)
+			return nil, err
+		}
+		var pHandle Peer
+		pHandle.conn = c
+		pHandle.client = newPeerFromConn(c)
+		pHandles[name] = &pHandle
+		logger.Debugf("create handle to the %s successful", eventpeerConfig.Host)
+	}
+
+	return pHandles, nil
+}
+
 func checkReconnect(config ConnectionConfig, peers []*Peer) bool {
 	for _, peer := range peers {
 		if peer.Uri == config.Host {
@@ -880,12 +928,10 @@ func (c FabricClient) getPeers(channel string, names []string) []*Peer {
 	return res
 }
 
-func (c FabricClient) getEventPeers(names []string) []*Peer {
-	res := make([]*Peer, 0, len(names))
-	for _, p := range names {
-		if fp, ok := c.EventPeers[p]; ok {
-			res = append(res, fp)
-		}
+func (c EventClient) getEventPeers() []*Peer {
+	var res []*Peer
+	for _, p := range c.EventPeers {
+		res = append(res, p)
 	}
 	return res
 }

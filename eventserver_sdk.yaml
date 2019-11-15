@@ -1,0 +1,20 @@
+---
+crypto:
+  family: ecdsa
+  algorithm: P256-SHA256
+  hash: SHA2-256
+eventPeers:
+  org1peer0:
+    host: peer0.org1.example.com:7051
+    orgName: org1
+    useTLS: true
+    tlsPath: ./crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+channel: mychannel
+chaincode: factor
+other:
+    check_time: 2m
+localConfig:
+    mspConfigPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+    localMspId:          Org1MSP
+    clientCert: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
+    clientKey: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.key

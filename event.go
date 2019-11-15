@@ -75,13 +75,7 @@ type EventBlockResponseTransactionEvent struct {
 }
 
 func (e *EventListener) newConnection() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(ctx, e.Peer.Uri, e.Peer.Opts...)
-	if err != nil {
-		return fmt.Errorf("cannot make new connection to: %s err: %v", e.Peer.Uri, err)
-	}
-	e.connection = conn
+	e.connection = e.Peer.conn
 	switch e.ListenerType {
 	case EventTypeFiltered:
 		client, err := peer.NewDeliverClient(e.connection).DeliverFiltered(e.Context)

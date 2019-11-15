@@ -16,21 +16,20 @@ type ClientConfig struct {
 	LocalConfig    `yaml:"localConfig"`
 	Orderers       map[string]OrdererConfig    `yaml:"orderers"`
 	Peers          map[string]PeerConfig       `yaml:"peers"`
-	EventPeers     map[string]PeerConfig       `yaml:"eventPeers"`
 	DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
 	CCofChannels   map[string][]string         `yaml:"ccofchannels"` //key为channelID，value为chaincodes
 }
 
-//type ChannelConfig struct {
-//	MspConfigPath    string `yaml:"mspConfigPath"`
-//	LocalMspId       string `yaml:"localMspId"`
-//	ChannelId        string `yaml:"channelId"`
-//	Chaincodes    []string `yaml:"chaincodes"`
-//	ChaincodeVersion string `yaml:"chaincodeVersion"`
-//	ChaincodePolicy  `yaml:"chaincodePolicy"`
-//	ClientCert       string `yaml:"clientCert"`
-//	ClientKey        string `yaml:"clientKey"`
-//}
+// EventConfig holds config data for event peers
+type EventConfig struct {
+	CryptoConfig `yaml:"crypto"`
+	LocalConfig  `yaml:"localConfig"`
+	//Orderers       map[string]OrdererConfig    `yaml:"orderers"`
+	//Peers          map[string]PeerConfig       `yaml:"peers"`
+	EventPeers map[string]ConnectionConfig `yaml:"eventPeers"`
+	//DiscoveryPeers map[string]ConnectionConfig `yaml:"discoveryPeers"`
+	Channel string `yaml:"channel"` //key为channelID，value为chaincodes
+}
 
 type LocalConfig struct {
 	IsReConnect        bool   `yaml:"isReConnect"`
@@ -99,13 +98,27 @@ type ConnectionConfig struct {
 	ClientKey  string `yaml:"clientKey"`
 }
 
-// newFabricClientConfig create config from provided yaml file in path
+// newClientConfig create config from provided yaml file in path
 func newClientConfig(path string) (*ClientConfig, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 	config := new(ClientConfig)
+	err = yaml.Unmarshal([]byte(data), config)
+	if err != nil {
+		return nil, err
+	}
+	return config, nil
+}
+
+// newEventConfig create config from provided yaml file in path
+func newEventConfig(path string) (*EventConfig, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	config := new(EventConfig)
 	err = yaml.Unmarshal([]byte(data), config)
 	if err != nil {
 		return nil, err
