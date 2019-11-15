@@ -23,6 +23,8 @@ apiserver:
     isHttps: false
     probe_order: "127.0.0.1 7050"
 localConfig:
+    isReConnect:   true
+    reConnTimeInterval: 30
     mspConfigPath: ./crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
     localMspId:          Org1MSP
     clientCert: ./crypto-config/peerOrganizations/org1.example.com/users/User1@org1.example.com/tls/client.crt
