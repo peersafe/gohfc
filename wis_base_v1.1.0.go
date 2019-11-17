@@ -27,6 +27,7 @@ type WisHandler struct {
 	Args             []string
 	Ide              *Identity
 	FaCli            *FabricClient
+	EventCli         *EventClient
 }
 
 var wis_logger = flogging.MustGetLogger("gohfc-wisbase")
@@ -86,7 +87,7 @@ func (w *WisHandler) ListenEventFullBlock(response chan<- EventBlockResponse) er
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err = w.FaCli.ListenForFilteredBlock(ctx, *w.Ide, -1, w.EventPeer, w.Channeluuids, response)
+	err = w.EventCli.ListenForFilteredBlock(ctx, *w.Ide, -1, w.EventPeer, w.Channeluuids, response)
 	if err != nil {
 		cancel()
 		return err
@@ -102,7 +103,7 @@ func (w *WisHandler) ListenForFullBlock(response chan<- parseBlock.Block) error 
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	err = w.FaCli.ListenForFullBlock(ctx, *w.Ide, -1, w.EventPeer, w.Channeluuids, response)
+	err = w.EventCli.ListenForFullBlock(ctx, *w.Ide, -1, w.Channeluuids, response)
 	if err != nil {
 		cancel()
 		return err
@@ -133,6 +134,8 @@ func (w *WisHandler) Listen(response chan<- parseBlock.Block) error {
 func (w *WisHandler) Init() error {
 	fabricClient := &FabricClient{}
 	w.FaCli = fabricClient
+	eventClient := &EventClient{}
+	w.EventCli = eventClient
 
 	pubkey := findCurt(w.Pubkeys)
 	prikey := findCurt(w.Prikeys)
@@ -204,7 +207,7 @@ func (w *WisHandler) Init() error {
 			return fmt.Errorf("EventPeer NewPeerFromConfig err :", err)
 		}
 		eventpeers[w.EventPeer] = eventpeer
-		w.FaCli.EventPeers = eventpeers
+		w.EventCli.EventPeers = eventpeers
 	}
 
 	return nil
