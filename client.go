@@ -607,6 +607,7 @@ func (c *EventClient) ListenForFullBlock(ctx context.Context, identity Identity,
 	for _, eventpeer := range c.EventPeers {
 		listener, err := newEventListener(ctx, c.Crypto, identity, *eventpeer, channelId, EventTypeFullBlock)
 		if err != nil {
+			logger.Warningf("create deliver client failed: %v", err)
 			continue
 		}
 		if startNum < 0 {
@@ -615,6 +616,7 @@ func (c *EventClient) ListenForFullBlock(ctx context.Context, identity Identity,
 			err = listener.SeekRange(uint64(startNum), math.MaxUint64)
 		}
 		if err != nil {
+			logger.Warningf("send envelope to peer failed: %v", err)
 			continue
 		}
 		listener.Listen(response, nil)
