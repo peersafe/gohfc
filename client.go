@@ -607,7 +607,7 @@ func (c *EventClient) ListenForFullBlock(ctx context.Context, identity Identity,
 	for _, eventpeer := range c.EventPeers {
 		listener, err := newEventListener(ctx, c.Crypto, identity, *eventpeer, channelId, EventTypeFullBlock)
 		if err != nil {
-			return err
+			continue
 		}
 		if startNum < 0 {
 			err = listener.SeekNewest()
@@ -615,7 +615,7 @@ func (c *EventClient) ListenForFullBlock(ctx context.Context, identity Identity,
 			err = listener.SeekRange(uint64(startNum), math.MaxUint64)
 		}
 		if err != nil {
-			return err
+			continue
 		}
 		listener.Listen(response, nil)
 
@@ -623,7 +623,7 @@ func (c *EventClient) ListenForFullBlock(ctx context.Context, identity Identity,
 		return nil
 	}
 
-	return nil
+	return errors.New("connect all peers failed")
 
 }
 
