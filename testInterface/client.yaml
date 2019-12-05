@@ -7,36 +7,26 @@ crypto:
 #   hash: SHA2-256
 orderers:
   orderer0:
-    host: 127.0.0.1:7050
-    domainName: orderer.example.com
+    host: 192.168.0.16:7050
+    domainName: orderer1.ordererorg0.csdctzar
     useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/orderer/orderer1.ordererorg0.csdctzar/server.crt
 peers:
   peer01:
-    host: 127.0.0.1:7051
-    domainName: peer0.org1.example.com
+    host: 192.168.0.16:7051
+    domainName: peer1.org1.csdctzar.com
     useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/peer/ca.crt
 eventPeers:
   peer01:
-    host: 127.0.0.1:7051
-    domainName: peer0.org1.example.com
+    host: 192.168.0.16:7051
+    domainName: peer1.org1.csdctzar.com
     useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/peer/ca.crt
 channel:
-    mspConfigPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
-    localMspId:          Org1MSP
-    channelId:           mychannel
-    chaincodeName:       mycc
-    chaincodeVersion:    1.0
-    tlsMutual: false
-    clientCert: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
-    clientKey: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
-
-mq:
-    mqAddress:
-#      - "amqp://xn:123456@10.10.255.103:5672/"
-      - "amqp://guest:guest@localhost:5672/"
-    queueName: "assetQueue"
+    mspConfigPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/msp
+    localMspId: org1MSPcsdctzar
+    channelId: channelmawmkgjm
+    chaincodeName: cc1csdctzar
 log:
     logLevel: DEBUG

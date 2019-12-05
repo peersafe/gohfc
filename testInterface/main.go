@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc"
-	"time"
 )
 
 var (
@@ -21,7 +20,7 @@ func main() {
 		return
 	}
 
-	logger.Debugf("--testInterface main--")
+	logger.Debugf("--Interface main--")
 
 	switch *funcName {
 	case "invoke":
@@ -68,30 +67,6 @@ func main() {
 					//logger.Debugf("---%s\n",aa)
 				}
 			}
-		}
-	case "listen":
-		ch, err := gohfc.GetHandler().Listen("", "")
-		if err != nil {
-			logger.Error(err)
-			return
-		}
-		for {
-			select {
-			case b := <-ch:
-				logger.Debugf("------listen block num---%d\n", b.Header.Number)
-				//aa,_ := json.Marshal(b)
-				//logger.Debugf("---%s\n",aa)
-			}
-		}
-	case "checkordconn":
-		for {
-			ok, err := gohfc.GetHandler().GetOrdererConnect()
-			if err != nil {
-				logger.Error(err)
-				return
-			}
-			logger.Debugf("the connect is %v", ok)
-			time.Sleep(2 * time.Second)
 		}
 	default:
 		flag.PrintDefaults()
