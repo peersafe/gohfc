@@ -8,30 +8,30 @@ crypto:
 orderers:
   orderer0:
     host: 127.0.0.1:7050
-    domainName: orderer.example.com
+    domainName: orderer0.ord1.example.com
     useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/ordererOrganizations/example.com/orderers/orderer.example.com/tls/server.crt
+    tlsPath: /home/ubuntu/deploy/config/crypto-config/ordererOrganizations/ord1.example.com/orderers/orderer0.ord1.example.com/tls/server.crt
 peers:
   peer01:
     host: 127.0.0.1:7051
     domainName: peer0.org1.example.com
     useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 eventPeers:
   peer01:
     host: 127.0.0.1:7051
     domainName: peer0.org1.example.com
     useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 channel:
-    mspConfigPath: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+    mspConfigPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
     localMspId:          Org1MSP
     channelId:           mychannel
     chaincodeName:       mycc
     chaincodeVersion:    1.0
     tlsMutual: false
-    clientCert: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
-    clientKey: /opt/gopath/src/github.com/peersafe/worktool/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
+    clientCert: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+    clientKey: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
 
 mq:
     mqAddress:
