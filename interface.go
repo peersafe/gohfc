@@ -116,7 +116,7 @@ func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) (
 	if len(peerNames) == 0 {
 		return nil, fmt.Errorf("config peer order is err")
 	}
-	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, "")
 	if err != nil {
 		return nil, err
 	}
