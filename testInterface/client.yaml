@@ -1,32 +1,34 @@
-crypto:
+crypto: # 自行根据创建联盟时，选择的是否是国密版本设置算法
+   # 国密版本
    family: gm
    algorithm: P256SM2
    hash: SM3
+   # ecdsa版本
 #   family: ecdsa
 #   algorithm: P256-SHA256
 #   hash: SHA2-256
-orderers:
-  orderer0:
-    host: 192.168.0.16:7050
-    domainName: orderer1.ordererorg0.csdctzar
-    useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/orderer/orderer1.ordererorg0.csdctzar/server.crt
-peers:
-  peer01:
-    host: 192.168.0.16:7051
-    domainName: peer1.org1.csdctzar.com
-    useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/peer/ca.crt
-eventPeers:
-  peer01:
-    host: 192.168.0.16:7051
-    domainName: peer1.org1.csdctzar.com
-    useTLS: true
-    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/peer/ca.crt
+orderers: #在上述响应的"orderers"数组中，任意选择一个即可
+  orderer0: #对"orderers"数组元素中的 "domain"
+    host: 192.168.0.15:7050 #对"orderers"数组元素中的 "ip":"port"
+    domainName: orderer1.ordererorg0.fppedcfd.com #对应"orderers"数组元素中的 "domain"
+    useTLS: true #使用默认值"true"即可，不要修改
+    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/cert/orderer_tls.cert #对应"orderers"数组元素中的 "tls_cert"
+peers: #对应上述响应的"peers"数组，所有peer节点信息都要配置
+  peer01: #对"peers"数组元素中的 "domain"
+    host: 192.168.0.15:7051 #对应"orderers"数组元素中的 "ip":"port"
+    domainName: peer1.org1.fppedcfd.com #对应"peers"数组元素中的 "domain"
+    useTLS: true #使用默认值"true"即可，不要修改
+    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/cert/peer_tls.cert #对应"peers"数组元素中的 "tls_cert"
+eventPeers: #在上述响应的"peers"数组中，任意选择一个即可
+  peer01: #对"peers"数组元素中的 "domain"
+    host: 192.168.0.15:7051 #192.168.0.15:7051 对应"orderers"数组元素中的 "ip":"port"
+    domainName: peer1.org1.fppedcfd.com #对应"peers"数组元素中的 "domain"
+    useTLS: true #使用默认值"true"即可，不要修改
+    tlsPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/cert/peer_tls.cert #对应"peers"数组元素中的 "tls_cert"
 channel:
-    mspConfigPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/test/msp
-    localMspId: org1MSPcsdctzar
-    channelId: channelmawmkgjm
-    chaincodeName: cc1csdctzar
+    mspConfigPath: /opt/gopath/src/github.com/peersafe/gohfc/testInterface/cert #自己在此目录下创建两个目录"signcerts"、"keystore"，并在第一个目录下面创建文件"cert.pem"（内容为响应中"apply_cert"中的"sign_certs"），在第二个目录下面创建文件"key.pem"（内容为响应中"apply_cert"中的"private_key"）
+    localMspId: org1MSPfppedcfd #对应上述响应的"local_mspid"
+    channelId: channelooxjxkmc #对应上述响应的"channel_id"
+    chaincodeName: cc1fppedcfd #对应上述响应的"chaincode_name"
 log:
     logLevel: DEBUG
