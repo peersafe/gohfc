@@ -89,7 +89,21 @@ func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) 
 	if len(peerNames) == 0 || orderName == "" {
 		return nil, fmt.Errorf("config peer order is err")
 	}
-	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, "")
+	if err != nil {
+		return nil, err
+	}
+	return sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
+}
+
+// Invoke invoke with private data cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
+func (sdk *sdkHandler) InvokeWithPriData(args []string, channelName, chaincodeName, pridata string) (*InvokeResponse, error) {
+	peerNames := getSendPeerName()
+	orderName := getSendOrderName()
+	if len(peerNames) == 0 || orderName == "" {
+		return nil, fmt.Errorf("config peer order is err")
+	}
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, pridata)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +338,7 @@ func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
 
 //解析区块
 func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
-	if reflect.ValueOf(block).IsNil() || block == nil || block.XXX_Size() == 0{
+	if reflect.ValueOf(block).IsNil() || block == nil || block.XXX_Size() == 0 {
 		return nil, fmt.Errorf("the block not exist")
 	}
 	blockObj := parseBlock.ParseBlock(block, 0)
