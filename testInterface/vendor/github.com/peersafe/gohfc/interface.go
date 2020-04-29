@@ -65,16 +65,9 @@ func InitSDK(configPath string) error {
 	if err := parsePolicy(); err != nil {
 		return fmt.Errorf("parsePolicy err: %s\n", err.Error())
 	}
-	go func() {
-		for {
-			select {
-			case newChannelID := <-waitTxstatus.GlobalChan:
-				if err := handler.HandleTxStatus(newChannelID, -1); err != nil {
-					waitTxstatus.GlobalTxStatusMap.Delete(newChannelID)
-				}
-			}
-		}
-	}()
+	if err := handler.HandleTxStatus("", -1); err != nil {
+		return fmt.Errorf("HandleTxStatus err: %s\n", err.Error())
+	}
 	return err
 }
 
@@ -297,7 +290,7 @@ func (sdk *sdkHandler) HandleTxStatus(channelName string, startNum int) error {
 			select {
 			case filterBlock := <-filterBlockChan:
 				for _, tx := range filterBlock.Transactions {
-					waitTxstatus.PublishTxStatus(filterBlock.ChannelId, tx.Id, tx.Status)
+					waitTxstatus.PublishTxStatus(tx.Id, tx.Status)
 				}
 			}
 		}

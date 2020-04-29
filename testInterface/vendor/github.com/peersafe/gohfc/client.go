@@ -499,11 +499,14 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 		return nil, err
 	}
 	//listen tx status
-	txStatusChan, err := waitTxstatus.RegisterTxStatusEvent(chainCode.ChannelId, prop.transactionId)
+	if chainCode.ChannelId != c.Channel.ChannelId {
+		return nil, fmt.Errorf("%s, %s dont`t match, no support sync invoke", chainCode.ChannelId, c.Channel.ChannelId)
+	}
+	txStatusChan, err := waitTxstatus.RegisterTxStatusEvent(prop.transactionId)
 	if err != nil {
 		return nil, err
 	}
-	defer waitTxstatus.UnRegisterTxStatusEvent(chainCode.ChannelId, prop.transactionId, txStatusChan)
+	defer waitTxstatus.UnRegisterTxStatusEvent(prop.transactionId, txStatusChan)
 
 	reply, err := ord.Broadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
 	if err != nil {

@@ -45,18 +45,13 @@ func main() {
 
 	switch args[0] {
 	case "invoke":
-		res, err := gohfc.GetHandler().Invoke(args, "mychannel2", "")
+		res, err := gohfc.GetHandler().Invoke(args, "mychannel", "")
 		if err != nil {
 			logger.Error(err)
 			return
 		}
+
 		logger.Debugf("----invoke--TxID--%s\n", res.TxID)
-		res1, err1 := gohfc.GetHandler().Invoke(args, "mychannel", "")
-		if err1 != nil {
-			logger.Error(err1)
-			return
-		}
-		logger.Debugf("----invoke--TxID--%s\n", res1.TxID)
 	case "query":
 		resVal, err := gohfc.GetHandler().Query(args, "", "")
 		if err != nil || len(resVal) == 0 {
