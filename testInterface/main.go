@@ -42,10 +42,9 @@ func main() {
 		logger.Error(err)
 		return
 	}
-
 	switch args[0] {
 	case "invoke":
-		res, err := gohfc.GetHandler().Invoke(args, "mychannel", "")
+		res, err := gohfc.GetHandler().Invoke(args, "", "")
 		if err != nil {
 			logger.Error(err)
 			return
