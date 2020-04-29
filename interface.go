@@ -8,10 +8,11 @@ import (
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc/parseBlock"
+	"github.com/peersafe/gohfc/waitTxstatus"
 	"google.golang.org/grpc/connectivity"
+	"reflect"
 	"strconv"
 	"strings"
-	"reflect"
 )
 
 //sdk handler
@@ -64,6 +65,16 @@ func InitSDK(configPath string) error {
 	if err := parsePolicy(); err != nil {
 		return fmt.Errorf("parsePolicy err: %s\n", err.Error())
 	}
+	go func() {
+		for {
+			select {
+			case newChannelID := <-waitTxstatus.GlobalChan:
+				if err := handler.HandleTxStatus(newChannelID, -1); err != nil {
+					waitTxstatus.GlobalTxStatusMap.Delete(newChannelID)
+				}
+			}
+		}
+	}()
 	return err
 }
 
@@ -265,6 +276,33 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 	//	fmt.Println(d)
 	//}
 	return ch, nil
+}
+
+func (sdk *sdkHandler) HandleTxStatus(channelName string, startNum int) error {
+	if len(channelName) == 0 {
+		channelName = sdk.client.Channel.ChannelId
+	}
+	if channelName == "" {
+		return fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
+	}
+	filterBlockChan := make(chan EventBlockResponse)
+	ctx, cancel := context.WithCancel(context.Background())
+	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, filterBlockChan)
+	if err != nil {
+		cancel()
+		return err
+	}
+	go func() {
+		for {
+			select {
+			case filterBlock := <-filterBlockChan:
+				for _, tx := range filterBlock.Transactions {
+					waitTxstatus.PublishTxStatus(filterBlock.ChannelId, tx.Id, tx.Status)
+				}
+			}
+		}
+	}()
+	return nil
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value

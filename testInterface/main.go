@@ -5,34 +5,60 @@ import (
 	"fmt"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc"
+	"strings"
 	"time"
 )
 
+type ArrayValue []string
+
+func (s *ArrayValue) String() string {
+	return fmt.Sprintf("%v", *s)
+}
+
+func (a *ArrayValue) Set(s string) error {
+	*a = strings.Split(s, ",")
+	return nil
+}
+
 var (
 	logger   = logging.MustGetLogger("testInterface")
-	funcName = flag.String("function", "", "invoke,query,listenfull(7051),listen(7053),checkordconn")
 )
 
 func main() {
+	fmt.Println("################CMD#####################")
+	fmt.Println("./testInterfaceGM -args=invoke,a,b,1")
+	fmt.Println("./testInterfaceGM -args=query,a")
+	fmt.Println("./testInterfaceGM -args=listenfull")
+	fmt.Println("#########################################")
+	var args ArrayValue
+	flag.Var(&args, "args", "Input array to iterate through.")
 	flag.Parse()
+	if len(args) == 0 {
+		fmt.Println("-----------CMD ERR-------")
+		return
+	}
 	err := gohfc.InitSDK("./client.yaml")
 	if err != nil {
 		logger.Error(err)
 		return
 	}
 
-	logger.Debugf("--testInterface main--")
-
-	switch *funcName {
+	switch args[0] {
 	case "invoke":
-		res, err := gohfc.GetHandler().Invoke([]string{"invoke", "a", "b", "1"}, "", "")
+		res, err := gohfc.GetHandler().Invoke(args, "mychannel2", "")
 		if err != nil {
 			logger.Error(err)
 			return
 		}
 		logger.Debugf("----invoke--TxID--%s\n", res.TxID)
+		res1, err1 := gohfc.GetHandler().Invoke(args, "mychannel", "")
+		if err1 != nil {
+			logger.Error(err1)
+			return
+		}
+		logger.Debugf("----invoke--TxID--%s\n", res1.TxID)
 	case "query":
-		resVal, err := gohfc.GetHandler().Query([]string{"query", "a"}, "", "")
+		resVal, err := gohfc.GetHandler().Query(args, "", "")
 		if err != nil || len(resVal) == 0 {
 			logger.Error(err)
 			return

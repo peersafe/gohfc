@@ -8,10 +8,11 @@ import (
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc/parseBlock"
+	"github.com/peersafe/gohfc/waitTxstatus"
 	"google.golang.org/grpc/connectivity"
+	"reflect"
 	"strconv"
 	"strings"
-	"reflect"
 )
 
 //sdk handler
@@ -64,6 +65,16 @@ func InitSDK(configPath string) error {
 	if err := parsePolicy(); err != nil {
 		return fmt.Errorf("parsePolicy err: %s\n", err.Error())
 	}
+	go func() {
+		for {
+			select {
+			case newChannelID := <-waitTxstatus.GlobalChan:
+				if err := handler.HandleTxStatus(newChannelID, -1); err != nil {
+					waitTxstatus.GlobalTxStatusMap.Delete(newChannelID)
+				}
+			}
+		}
+	}()
 	return err
 }
 
@@ -89,7 +100,21 @@ func (sdk *sdkHandler) Invoke(args []string, channelName, chaincodeName string) 
 	if len(peerNames) == 0 || orderName == "" {
 		return nil, fmt.Errorf("config peer order is err")
 	}
-	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, "")
+	if err != nil {
+		return nil, err
+	}
+	return sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
+}
+
+// Invoke invoke with private data cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
+func (sdk *sdkHandler) InvokeWithPriData(args []string, channelName, chaincodeName, pridata string) (*InvokeResponse, error) {
+	peerNames := getSendPeerName()
+	orderName := getSendOrderName()
+	if len(peerNames) == 0 || orderName == "" {
+		return nil, fmt.Errorf("config peer order is err")
+	}
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, pridata)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +127,7 @@ func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) (
 	if len(peerNames) == 0 {
 		return nil, fmt.Errorf("config peer order is err")
 	}
-	chaincode, err := getChainCodeObj(args, channelName, chaincodeName)
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, "")
 	if err != nil {
 		return nil, err
 	}
@@ -253,6 +278,33 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 	return ch, nil
 }
 
+func (sdk *sdkHandler) HandleTxStatus(channelName string, startNum int) error {
+	if len(channelName) == 0 {
+		channelName = sdk.client.Channel.ChannelId
+	}
+	if channelName == "" {
+		return fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
+	}
+	filterBlockChan := make(chan EventBlockResponse)
+	ctx, cancel := context.WithCancel(context.Background())
+	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, filterBlockChan)
+	if err != nil {
+		cancel()
+		return err
+	}
+	go func() {
+		for {
+			select {
+			case filterBlock := <-filterBlockChan:
+				for _, tx := range filterBlock.Transactions {
+					waitTxstatus.PublishTxStatus(filterBlock.ChannelId, tx.Id, tx.Status)
+				}
+			}
+		}
+	}()
+	return nil
+}
+
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) (chan EventBlockResponse, error) {
 	if len(channelName) == 0 {
@@ -324,7 +376,7 @@ func (sdk *sdkHandler) GetOrdererConnect() (bool, error) {
 
 //解析区块
 func (sdk *sdkHandler) ParseCommonBlock(block *common.Block) (*parseBlock.Block, error) {
-	if reflect.ValueOf(block).IsNil() || block == nil || block.XXX_Size() == 0{
+	if reflect.ValueOf(block).IsNil() || block == nil || block.XXX_Size() == 0 {
 		return nil, fmt.Errorf("the block not exist")
 	}
 	blockObj := parseBlock.ParseBlock(block, 0)

@@ -43,11 +43,10 @@ type ecPrivateKey struct {
 }
 
 var (
-	oidNamedCurveP224    = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
-	oidNamedCurveP256    = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
-	oidNamedCurveP384    = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
-	oidNamedCurveP521    = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
-	oidNamedCurveP256SM2 = asn1.ObjectIdentifier{1, 2, 156, 10197, 1, 301}
+	oidNamedCurveP224 = asn1.ObjectIdentifier{1, 3, 132, 0, 33}
+	oidNamedCurveP256 = asn1.ObjectIdentifier{1, 2, 840, 10045, 3, 1, 7}
+	oidNamedCurveP384 = asn1.ObjectIdentifier{1, 3, 132, 0, 34}
+	oidNamedCurveP521 = asn1.ObjectIdentifier{1, 3, 132, 0, 35}
 )
 
 var oidPublicKeyECDSA = asn1.ObjectIdentifier{1, 2, 840, 10045, 2, 1}
@@ -62,8 +61,6 @@ func oidFromNamedCurve(curve elliptic.Curve) (asn1.ObjectIdentifier, bool) {
 		return oidNamedCurveP384, true
 	case elliptic.P521():
 		return oidNamedCurveP521, true
-	case elliptic.P256SM2():
-		return oidNamedCurveP256SM2, true
 	}
 	return nil, false
 }

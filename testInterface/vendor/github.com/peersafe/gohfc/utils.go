@@ -1,6 +1,7 @@
 package gohfc
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/op/go-logging"
 	"math/rand"
@@ -10,7 +11,7 @@ import (
 	"google.golang.org/grpc/grpclog"
 )
 
-func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCode, error) {
+func getChainCodeObj(args []string, channelName, chaincodeName, pridata string) (*ChainCode, error) {
 	if len(channelName) == 0 {
 		channelName = handler.client.Channel.ChannelId
 	}
@@ -21,12 +22,19 @@ func getChainCodeObj(args []string, channelName, chaincodeName string) (*ChainCo
 	if channelName == "" || chaincodeName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or chaincodeName or mspId is empty")
 	}
-
+	// extract the transient field if it exists
+	var tMap map[string][]byte
+	if pridata != "" {
+		if err := json.Unmarshal([]byte(pridata), &tMap); err != nil {
+			return nil, fmt.Errorf("error parsing pridata string :%s", err.Error())
+		}
+	}
 	chaincode := ChainCode{
-		ChannelId: channelName,
-		Type:      ChaincodeSpec_GOLANG,
-		Name:      chaincodeName,
-		Args:      args,
+		ChannelId:    channelName,
+		Type:         ChaincodeSpec_GOLANG,
+		Name:         chaincodeName,
+		Args:         args,
+		TransientMap: tMap,
 	}
 
 	return &chaincode, nil

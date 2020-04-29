@@ -8,6 +8,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/peersafe/gohfc/waitTxstatus"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
@@ -478,10 +480,12 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
+
 	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
 	if err != nil {
 		return nil, err
 	}
+
 	proposal, err := signedProposal(prop.proposal, identity, c.Crypto)
 	if err != nil {
 		return nil, err
@@ -494,9 +498,25 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 	if err != nil {
 		return nil, err
 	}
+	//listen tx status
+	txStatusChan, err := waitTxstatus.RegisterTxStatusEvent(chainCode.ChannelId, prop.transactionId)
+	if err != nil {
+		return nil, err
+	}
+	defer waitTxstatus.UnRegisterTxStatusEvent(chainCode.ChannelId, prop.transactionId, txStatusChan)
+
 	reply, err := ord.Broadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
 	if err != nil {
 		return nil, err
+	}
+
+	select {
+	case txStatus := <-txStatusChan:
+		if txStatus != peer.TxValidationCode_VALID.String() {
+			return nil, fmt.Errorf("tx %s failed, err code: %s", prop.transactionId, txStatus)
+		}
+	case <-time.After(30 * time.Second):
+		return nil, fmt.Errorf("tx %s failed wait txstatus time out", prop.transactionId)
 	}
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
 }

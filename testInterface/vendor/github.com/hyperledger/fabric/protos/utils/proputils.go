@@ -578,15 +578,9 @@ func createProposalFromCDS(chainID string, msg proto.Message, creator []byte, pr
 func ComputeTxID(nonce, creator []byte) (string, error) {
 	// TODO: Get the Hash function to be used from
 	// channel configuration
-	var opts bccsp.HashOpts
-	if bccsp.UseGMCrypto {
-		opts = &bccsp.SM3Opts{}
-	} else {
-		opts = &bccsp.SHA256Opts{}
-	}
 	digest, err := factory.GetDefault().Hash(
 		append(nonce, creator...),
-		opts)
+		&bccsp.SHA256Opts{})
 	if err != nil {
 		return "", err
 	}
@@ -637,15 +631,10 @@ func ComputeProposalBinding(proposal *peer.Proposal) ([]byte, error) {
 func computeProposalBindingInternal(nonce, creator []byte, epoch uint64) ([]byte, error) {
 	epochBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(epochBytes, epoch)
-	var opts bccsp.HashOpts
-	if bccsp.UseGMCrypto {
-		opts = &bccsp.SM3Opts{}
-	} else {
-		opts = &bccsp.SHA256Opts{}
-	}
+
 	// TODO: add to genesis block the hash function used for
 	// the binding computation
 	return factory.GetDefault().Hash(
 		append(append(nonce, creator...), epochBytes...),
-		opts)
+		&bccsp.SHA256Opts{})
 }
