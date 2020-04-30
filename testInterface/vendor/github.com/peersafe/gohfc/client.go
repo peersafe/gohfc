@@ -8,9 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/peersafe/gohfc/waitTxstatus"
-	"time"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/orderer"
@@ -498,29 +495,12 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 	if err != nil {
 		return nil, err
 	}
-	//listen tx status
-	if chainCode.ChannelId != c.Channel.ChannelId {
-		return nil, fmt.Errorf("%s, %s dont`t match, no support sync invoke", chainCode.ChannelId, c.Channel.ChannelId)
-	}
-	txStatusChan, err := waitTxstatus.RegisterTxStatusEvent(prop.transactionId)
-	if err != nil {
-		return nil, err
-	}
-	defer waitTxstatus.UnRegisterTxStatusEvent(prop.transactionId, txStatusChan)
 
 	reply, err := ord.Broadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
 	if err != nil {
 		return nil, err
 	}
 
-	select {
-	case txStatus := <-txStatusChan:
-		if txStatus != peer.TxValidationCode_VALID.String() {
-			return nil, fmt.Errorf("tx %s failed, err code: %s", prop.transactionId, txStatus)
-		}
-	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("tx %s failed wait txstatus time out", prop.transactionId)
-	}
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
 }
 

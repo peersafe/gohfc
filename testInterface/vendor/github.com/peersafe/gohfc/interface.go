@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc/parseBlock"
 	"github.com/peersafe/gohfc/waitTxstatus"
@@ -13,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //sdk handler
@@ -48,6 +50,9 @@ func InitSDK(configPath string) error {
 	if err != nil {
 		return err
 	}
+	if handler.client.Channel.ChannelId == "" {
+		return fmt.Errorf("config channelid is empty")
+	}
 	mspPath := handler.client.Channel.MspConfigPath
 	if mspPath == "" {
 		return fmt.Errorf("config mspPath is empty")
@@ -65,9 +70,7 @@ func InitSDK(configPath string) error {
 	if err := parsePolicy(); err != nil {
 		return fmt.Errorf("parsePolicy err: %s\n", err.Error())
 	}
-	if err := handler.HandleTxStatus("", -1); err != nil {
-		return fmt.Errorf("HandleTxStatus err: %s\n", err.Error())
-	}
+
 	return err
 }
 
@@ -84,6 +87,47 @@ func GetConfigLogLevel() string {
 // GetHandler get sdk handler
 func GetChaincodeName() string {
 	return handler.client.Channel.ChaincodeName
+}
+
+// Sync Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
+func (sdk *sdkHandler) SyncInvoke(args []string, channelName, chaincodeName string) (*InvokeResponse, error) {
+	if len(channelName) == 0 {
+		channelName = sdk.client.Channel.ChannelId
+	} else if channelName != sdk.client.Channel.ChannelId {
+		return nil, fmt.Errorf("%s, %s dont`t match, no support sync invoke", channelName, sdk.client.Channel.ChannelId)
+	}
+	peerNames := getSendPeerName()
+	orderName := getSendOrderName()
+	if len(peerNames) == 0 || orderName == "" {
+		return nil, fmt.Errorf("config peer order is err")
+	}
+	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, "")
+	if err != nil {
+		return nil, err
+	}
+	res, err := sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
+	if err != nil {
+		return nil, err
+	}
+	if res.Status != common.Status_SUCCESS {
+		return nil, fmt.Errorf("sync invoke response status is %s", res.Status.String())
+	}
+	//listen tx status
+	txStatusChan, err := waitTxstatus.RegisterTxStatusEvent(res.TxID)
+	if err != nil {
+		return nil, err
+	}
+	defer waitTxstatus.UnRegisterTxStatusEvent(res.TxID, txStatusChan)
+
+	select {
+	case txStatus := <-txStatusChan:
+		if txStatus != peer.TxValidationCode_VALID.String() {
+			return nil, fmt.Errorf("tx %s failed, err code: %s", res.TxID, txStatus)
+		}
+	case <-time.After(30 * time.Second):
+		return nil, fmt.Errorf("tx %s failed wait txstatus time out 30s", res.TxID)
+	}
+	return res, nil
 }
 
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
@@ -156,9 +200,7 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
-	if channelName == "" {
-		return nil, fmt.Errorf("GetBlockHeight channelName is empty ")
-	}
+
 	args := []string{"GetBlockByNumber", channelName, strBlockNum}
 	logger.Debugf("GetBlockByNumber chainId %s num %s", channelName, strBlockNum)
 	resps, err := sdk.QueryByQscc(args, channelName)
@@ -185,9 +227,7 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
-	if channelName == "" {
-		return 0, fmt.Errorf("GetBlockHeight channelName is empty ")
-	}
+
 	args := []string{"GetChainInfo", channelName}
 	resps, err := sdk.QueryByQscc(args, channelName)
 	if err != nil {
@@ -254,9 +294,7 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
-	if channelName == "" {
-		return nil, fmt.Errorf("ListenEventFullBlock channelName is empty ")
-	}
+
 	ch := make(chan parseBlock.Block)
 	ctx, cancel := context.WithCancel(context.Background())
 	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
@@ -264,23 +302,18 @@ func (sdk *sdkHandler) ListenEventFullBlock(channelName string, startNum int) (c
 		cancel()
 		return nil, err
 	}
-	//
-	//for d := range ch {
-	//	fmt.Println(d)
-	//}
+
 	return ch, nil
 }
 
-func (sdk *sdkHandler) HandleTxStatus(channelName string, startNum int) error {
+func (sdk *sdkHandler) HandleTxStatus(channelName string) error {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
-	if channelName == "" {
-		return fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
-	}
+
 	filterBlockChan := make(chan EventBlockResponse)
 	ctx, cancel := context.WithCancel(context.Background())
-	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, filterBlockChan)
+	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, -1, eventName, channelName, filterBlockChan)
 	if err != nil {
 		cancel()
 		return err
@@ -303,9 +336,7 @@ func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) 
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
-	if channelName == "" {
-		return nil, fmt.Errorf("ListenEventFilterBlock  channelName is empty ")
-	}
+
 	ch := make(chan EventBlockResponse)
 	ctx, cancel := context.WithCancel(context.Background())
 	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
@@ -313,10 +344,6 @@ func (sdk *sdkHandler) ListenEventFilterBlock(channelName string, startNum int) 
 		cancel()
 		return nil, err
 	}
-	//
-	//for d := range ch {
-	//	fmt.Println(d)
-	//}
 	return ch, nil
 }
 
@@ -326,9 +353,7 @@ func (sdk *sdkHandler) Listen(peerName, channelName string) (chan parseBlock.Blo
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
-	if channelName == "" {
-		return nil, fmt.Errorf("Listen  channelName is empty ")
-	}
+
 	if peerName == "" {
 		peerName = eventName
 	}

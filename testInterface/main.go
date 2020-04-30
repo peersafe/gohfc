@@ -21,7 +21,7 @@ func (a *ArrayValue) Set(s string) error {
 }
 
 var (
-	logger   = logging.MustGetLogger("testInterface")
+	logger = logging.MustGetLogger("testInterface")
 )
 
 func main() {
@@ -42,15 +42,20 @@ func main() {
 		logger.Error(err)
 		return
 	}
+	if err := gohfc.GetHandler().HandleTxStatus(""); err != nil {
+		logger.Error(err)
+		return
+	}
+
 	switch args[0] {
 	case "invoke":
-		res, err := gohfc.GetHandler().Invoke(args, "", "")
+		res, err := gohfc.GetHandler().SyncInvoke(args, "", "")
 		if err != nil {
 			logger.Error(err)
 			return
 		}
 
-		logger.Debugf("----invoke--TxID--%s\n", res.TxID)
+		logger.Debugf("----syncinvoke--TxID--%s\n", res.TxID)
 	case "query":
 		resVal, err := gohfc.GetHandler().Query(args, "", "")
 		if err != nil || len(resVal) == 0 {
