@@ -1,4 +1,4 @@
-// +build !gm
+// +build gm
 
 
 package parseBlock
@@ -336,7 +336,7 @@ func processBlock(block *cb.Block, size uint64) Block {
 			}
 
 			if len(localTransaction.ProposalHash) == 0 {
-				localTransaction.ProposalHash = util.ComputeSHA256(configEnv.LastUpdate.Payload)
+				localTransaction.ProposalHash = util.ComputeHash(configEnv.LastUpdate.Payload)
 			}
 
 			localChannelHeader := &ChannelHeader{}

@@ -25,11 +25,10 @@ var (
 	// curve group order halved. We accept only low-S signatures.
 	// They are precomputed for efficiency reasons.
 	curveHalfOrders = map[elliptic.Curve]*big.Int{
-		elliptic.P224():    new(big.Int).Rsh(elliptic.P224().Params().N, 1),
-		elliptic.P256():    new(big.Int).Rsh(elliptic.P256().Params().N, 1),
-		elliptic.P384():    new(big.Int).Rsh(elliptic.P384().Params().N, 1),
-		elliptic.P521():    new(big.Int).Rsh(elliptic.P521().Params().N, 1),
-		elliptic.P256SM2(): new(big.Int).Rsh(elliptic.P256SM2().Params().N, 1),
+		elliptic.P224(): new(big.Int).Rsh(elliptic.P224().Params().N, 1),
+		elliptic.P256(): new(big.Int).Rsh(elliptic.P256().Params().N, 1),
+		elliptic.P384(): new(big.Int).Rsh(elliptic.P384().Params().N, 1),
+		elliptic.P521(): new(big.Int).Rsh(elliptic.P521().Params().N, 1),
 	}
 )
 
@@ -87,9 +86,6 @@ func SignatureToLowS(k *ecdsa.PublicKey, signature []byte) ([]byte, error) {
 
 // IsLow checks that s is a low-S
 func IsLowS(k *ecdsa.PublicKey, s *big.Int) (bool, error) {
-	if k.Curve == elliptic.P256SM2() {
-		return true, nil
-	}
 	halfOrder, ok := curveHalfOrders[k.Curve]
 	if !ok {
 		return false, fmt.Errorf("curve not recognized [%s]", k.Curve)

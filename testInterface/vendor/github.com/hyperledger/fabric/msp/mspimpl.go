@@ -201,13 +201,10 @@ func (msp *bccspmsp) getSigningIdentityFromConf(sidInfo *m.SigningIdentityInfo) 
 		}
 
 		pemKey, _ := pem.Decode(sidInfo.PrivateSigner.KeyMaterial)
-		var opts bccsp.KeyImportOpts
-		if bccsp.UseGMCrypto {
-			opts = &bccsp.SM2PrivateKeyImportOpts{Temporary: true}
-		} else {
-			opts = &bccsp.ECDSAPrivateKeyImportOpts{Temporary: true}
+		privKey, err = msp.bccsp.KeyImport(pemKey.Bytes, &bccsp.ECDSAPrivateKeyImportOpts{Temporary: true})
+		if err != nil {
+			return nil, errors.WithMessage(err, "getIdentityFromBytes error: Failed to import EC private key")
 		}
-		privKey, err = msp.bccsp.KeyImport(pemKey.Bytes, opts)
 	}
 
 	// get the peer signer
