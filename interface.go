@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric/protos/common"
-	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc/parseBlock"
 	"github.com/peersafe/gohfc/waitTxstatus"
@@ -14,7 +13,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"time"
 )
 
 //sdk handler
@@ -105,29 +103,7 @@ func (sdk *sdkHandler) SyncInvoke(args []string, channelName, chaincodeName stri
 	if err != nil {
 		return nil, err
 	}
-	res, err := sdk.client.Invoke(*sdk.identity, *chaincode, peerNames, orderName)
-	if err != nil {
-		return nil, err
-	}
-	if res.Status != common.Status_SUCCESS {
-		return nil, fmt.Errorf("sync invoke response status is %s", res.Status.String())
-	}
-	//listen tx status
-	txStatusChan, err := waitTxstatus.RegisterTxStatusEvent(res.TxID)
-	if err != nil {
-		return nil, err
-	}
-	defer waitTxstatus.UnRegisterTxStatusEvent(res.TxID, txStatusChan)
-
-	select {
-	case txStatus := <-txStatusChan:
-		if txStatus != peer.TxValidationCode_VALID.String() {
-			return nil, fmt.Errorf("tx %s failed, err code: %s", res.TxID, txStatus)
-		}
-	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("tx %s failed wait txstatus time out 30s", res.TxID)
-	}
-	return res, nil
+	return sdk.client.SyncInvoke(*sdk.identity, *chaincode, peerNames, orderName)
 }
 
 // Invoke invoke cc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
@@ -310,6 +286,8 @@ func (sdk *sdkHandler) HandleTxStatus(channelName string) error {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
 	}
+
+	waitTxstatus.HandleRegisterTxStatusEvent()
 
 	filterBlockChan := make(chan EventBlockResponse)
 	ctx, cancel := context.WithCancel(context.Background())

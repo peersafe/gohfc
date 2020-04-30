@@ -49,13 +49,19 @@ func main() {
 
 	switch args[0] {
 	case "invoke":
-		res, err := gohfc.GetHandler().SyncInvoke(args, "", "")
-		if err != nil {
-			logger.Error(err)
-			return
-		}
+		ch := make(chan int)
+		for i := 0; i < 5000; i++ {
+			go func() {
+				res, err := gohfc.GetHandler().SyncInvoke(args, "", "")
+				if err != nil {
+					logger.Error(err)
+					return
+				}
 
-		logger.Debugf("----syncinvoke--TxID--%s\n", res.TxID)
+				logger.Debugf("----syncinvoke--TxID--%s\n", res.TxID)
+			}()
+		}
+		<-ch
 	case "query":
 		resVal, err := gohfc.GetHandler().Query(args, "", "")
 		if err != nil || len(resVal) == 0 {

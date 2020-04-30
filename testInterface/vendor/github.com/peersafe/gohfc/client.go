@@ -13,7 +13,9 @@ import (
 	"github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/peersafe/gohfc/parseBlock"
+	"github.com/peersafe/gohfc/waitTxstatus"
 	"math"
+	"time"
 )
 
 // FabricClient expose API's to work with Hyperledger Fabric
@@ -501,6 +503,60 @@ func (c *FabricClient) Invoke(identity Identity, chainCode ChainCode, peers []st
 		return nil, err
 	}
 
+	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
+}
+
+func (c *FabricClient) SyncInvoke(identity Identity, chainCode ChainCode, peers []string, orderer string) (*InvokeResponse, error) {
+	ord, ok := c.Orderers[orderer]
+	if !ok {
+		return nil, ErrInvalidOrdererName
+	}
+	execPeers := c.getPeers(peers)
+	if len(peers) != len(execPeers) {
+		return nil, ErrPeerNameNotFound
+	}
+
+	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
+	if err != nil {
+		return nil, err
+	}
+
+	proposal, err := signedProposal(prop.proposal, identity, c.Crypto)
+	if err != nil {
+		return nil, err
+	}
+	transaction, err := createTransaction(prop.proposal, sendToPeers(execPeers, proposal))
+	if err != nil {
+		return nil, err
+	}
+
+	//listen tx status
+	reg, err := waitTxstatus.RegisterTxStatusEvent(prop.transactionId)
+	if err != nil {
+		return nil, err
+	}
+	defer waitTxstatus.UnRegisterTxStatusEvent(reg)
+
+	signedTransaction, err := c.Crypto.Sign(transaction, identity.PrivateKey)
+	if err != nil {
+		return nil, err
+	}
+
+	reply, err := ord.Broadcast(&common.Envelope{Payload: transaction, Signature: signedTransaction})
+	if err != nil {
+		return nil, err
+	}
+
+	select {
+	case txStatus := <-reg.Eventch:
+		if txStatus.TxValidationCode != peer.TxValidationCode_VALID.String() {
+			return nil, fmt.Errorf("tx %s failed, err code: %s", prop.transactionId, txStatus)
+		}
+	case err := <-reg.Errch:
+		return nil, err
+	case <-time.After(60 * time.Second):
+		return nil, fmt.Errorf("tx %s failed wait txstatus time out 30s", prop.transactionId)
+	}
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil
 }
 
