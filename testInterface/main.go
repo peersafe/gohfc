@@ -50,7 +50,7 @@ func main() {
 	switch args[0] {
 	case "invoke":
 		ch := make(chan int)
-		for i := 0; i < 5000; i++ {
+		for i := 0; i < 1; i++ {
 			go func() {
 				res, err := gohfc.GetHandler().SyncInvoke(args, "", "")
 				if err != nil {

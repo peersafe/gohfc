@@ -2,17 +2,19 @@ package waitTxstatus
 
 import (
 	"fmt"
-	"github.com/op/go-logging"
-	"sync"
 )
 
 //wait transaction status
 
 var (
-	logger            = logging.MustGetLogger("sdk")
+	//logger            = logging.MustGetLogger("sdk")
 	GlobalEventChan   = make(chan *TxStatusReg, 100)
-	GlobalTxStatusMap sync.Map
+	GlobalTxStatusMap *SyncMap
 )
+
+func init() {
+	GlobalTxStatusMap = NewSyncMap(make(map[string]TxChan))
+}
 
 type TxStatusReg struct {
 	TxID    string
@@ -55,7 +57,7 @@ func HandleRegisterTxStatusEvent() {
 			if !ok {
 				break
 			}
-			_, exist := GlobalTxStatusMap.LoadOrStore(e.TxID, e.Eventch)
+			_, exist := GlobalTxStatusMap.Put(e.TxID, e.Eventch)
 			if exist {
 				e.Errch <- fmt.Errorf("HandleRegisterTxStatusEvent txID %s was exist", e.TxID)
 			}
@@ -68,11 +70,9 @@ func PublishTxStatus(txID, txStatus string) {
 		return
 	}
 	go func(id string, status string) {
-		statusChan, exist := GlobalTxStatusMap.Load(id)
+		statusChan, exist := GlobalTxStatusMap.Get(id)
 		if exist {
-			if ch, ok := statusChan.(chan *TxStatusEvent); ok {
-				ch <- &TxStatusEvent{TxValidationCode: txStatus}
-			}
+			statusChan <- &TxStatusEvent{TxValidationCode: txStatus}
 		}
 	}(txID, txStatus)
 }
