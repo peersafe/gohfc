@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"bytes"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/common/tools/protolator"
 	ledgerUtil "github.com/hyperledger/fabric/core/ledger/util"
 	cb "github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/ledger/rwset"
@@ -16,9 +18,6 @@ import (
 	ab "github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
-	"bytes"
-	"github.com/hyperledger/fabric/common/tools/protolator"
-	"github.com/hyperledger/fabric/common/util"
 )
 
 func deserializeIdentity(serializedID []byte) (*x509.Certificate, string, error) {
