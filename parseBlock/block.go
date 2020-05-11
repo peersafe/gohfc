@@ -1,6 +1,3 @@
-// +build !gm
-
-
 package parseBlock
 
 import (
@@ -336,7 +333,7 @@ func processBlock(block *cb.Block, size uint64) Block {
 			}
 
 			if len(localTransaction.ProposalHash) == 0 {
-				localTransaction.ProposalHash = util.ComputeSHA256(configEnv.LastUpdate.Payload)
+				localTransaction.ProposalHash = ledgerUtil.ComputeHash(configEnv.LastUpdate.Payload)
 			}
 
 			localChannelHeader := &ChannelHeader{}
