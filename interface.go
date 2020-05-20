@@ -136,16 +136,12 @@ func (sdk *sdkHandler) InvokeWithPriData(args []string, channelName, chaincodeNa
 
 // Query query cc  ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) ([]*QueryResponse, error) {
-	peerNames := getSendPeerName()
-	if len(peerNames) == 0 {
-		return nil, fmt.Errorf("config peer order is err")
-	}
 	chaincode, err := getChainCodeObj(args, channelName, chaincodeName, "")
 	if err != nil {
 		return nil, err
 	}
 
-	return sdk.client.Query(*sdk.identity, *chaincode, []string{peerNames[0]})
+	return sdk.client.Query(*sdk.identity, *chaincode, []string{eventName})
 }
 
 // Query query qscc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value

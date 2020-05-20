@@ -410,7 +410,7 @@ func (c *FabricClient) QueryChannelInfo(identity Identity, channelId string, pee
 // Because is expected all peers to be in same state this function allows very easy horizontal scaling by
 // distributing query operations between peers.
 func (c *FabricClient) Query(identity Identity, chainCode ChainCode, peers []string) ([]*QueryResponse, error) {
-	execPeers := c.getPeers(peers)
+	execPeers := c.getEventPeers(peers)
 	if len(peers) != len(execPeers) {
 		return nil, ErrPeerNameNotFound
 	}
@@ -435,6 +435,7 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode, peers []str
 	}
 	return response, nil
 }
+
 // Invoke execute chainCode for ledger update. Peers that simulate the chainCode must be enough to satisfy the policy.
 // When Invoke returns with success this is not granite that ledger was update. Invoke will return `transactionId`.
 // This ID will be transactionId in events.

@@ -86,7 +86,10 @@ func parsePolicy() error {
 }
 
 func getSendOrderName() string {
-	return orderNames[generateRangeNum(0, len(orderNames))]
+	if len(orderNames) > 0 {
+		return orderNames[generateRangeNum(0, len(orderNames))]
+	}
+	return ""
 }
 
 func getSendPeerName() []string {
