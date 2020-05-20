@@ -1,6 +1,3 @@
-// +build !gm
-
-
 package parseBlock
 
 import (
@@ -10,7 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"bytes"
 	"github.com/golang/protobuf/proto"
+	"github.com/hyperledger/fabric/common/tools/protolator"
 	ledgerUtil "github.com/hyperledger/fabric/core/ledger/util"
 	cb "github.com/hyperledger/fabric/protos/common"
 	"github.com/hyperledger/fabric/protos/ledger/rwset"
@@ -19,9 +18,6 @@ import (
 	ab "github.com/hyperledger/fabric/protos/orderer"
 	"github.com/hyperledger/fabric/protos/peer"
 	"github.com/hyperledger/fabric/protos/utils"
-	"bytes"
-	"github.com/hyperledger/fabric/common/tools/protolator"
-	"github.com/hyperledger/fabric/common/util"
 )
 
 func deserializeIdentity(serializedID []byte) (*x509.Certificate, string, error) {
@@ -192,169 +188,180 @@ func processBlock(block *cb.Block, size uint64) Block {
 	localBlock.OrdererKafkaMetadata = ordererKafkaMetadata
 
 	for txIndex, data := range block.Data.Data {
-		localTransaction := &Transaction{}
-		localTransaction.Size = uint64(len(data))
-		//Get envelope which is stored as byte array in the data field.
 		envelope, err := utils.GetEnvelopeFromBlock(data)
 		if err != nil {
 			fmt.Printf("Error getting envelope: %s\n", err)
 			continue
 		}
-		localTransaction.Signature = envelope.Signature
-		//Get payload from envelope struct which is stored as byte array.
-		payload, err := utils.GetPayload(envelope)
+		locTx, bufString, err := parseTransactionEvn(envelope)
 		if err != nil {
-			fmt.Printf("Error getting payload from envelope: %s\n", err)
+			fmt.Printf(err.Error())
 			continue
 		}
-		chHeader, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
-		if err != nil {
-			fmt.Printf("Error unmarshaling channel header: %s\n", err)
-			continue
-		}
-		headerExtension := &peer.ChaincodeHeaderExtension{}
-		if err := proto.Unmarshal(chHeader.Extension, headerExtension); err != nil {
-			fmt.Printf("Error unmarshaling chaincode header extension: %s\n", err)
-			continue
-		}
-		localChannelHeader := &ChannelHeader{}
-		copyChannelHeaderToLocalChannelHeader(localChannelHeader, chHeader, headerExtension)
-
-		localBlock.ChannelID = localChannelHeader.ChannelId
+		locTx.Size = uint64(len(data))
+		localBlock.ChannelID = locTx.ChannelHeader.ChannelId
 		if txIndex == 0 {
-			localBlock.FirstTxTime = time.Unix(localChannelHeader.Timestamp.Seconds, int64(localChannelHeader.Timestamp.Nanos)).UTC()
+			localBlock.FirstTxTime = time.Unix(locTx.ChannelHeader.Timestamp.Seconds, int64(locTx.ChannelHeader.Timestamp.Nanos)).UTC()
 		}
-
-		// Performance measurement code ends
-		localTransaction.ChannelHeader = localChannelHeader
-		localSignatureHeader := &cb.SignatureHeader{}
-		if err := proto.Unmarshal(payload.Header.SignatureHeader, localSignatureHeader); err != nil {
-			fmt.Printf("Error unmarshaling signature header: %s\n", err)
+		localBlock.Config = bufString
+		// add the transaction validation a
+		if err := addTransactionValidation(&localBlock, locTx, txIndex); err != nil {
+			fmt.Printf(err.Error())
 			continue
 		}
-		localTransaction.SignatureHeader = getSignatureHeaderFromBlockData(localSignatureHeader)
-		//localTransaction.SignatureHeader.Nonce = localSignatureHeader.Nonce
-		//localTransaction.SignatureHeader.Certificate, _ = deserializeIdentity(localSignatureHeader.Creator)
-
-		if cb.HeaderType(chHeader.Type) == cb.HeaderType_ENDORSER_TRANSACTION {
-			transaction := &peer.Transaction{}
-			if err := proto.Unmarshal(payload.Data, transaction); err != nil {
-				fmt.Printf("Error unmarshaling transaction: %s\n", err)
-				continue
-			}
-			chaincodeActionPayload, chaincodeAction, err := utils.GetPayloads(transaction.Actions[0])
-			if err != nil {
-				fmt.Printf("Error getting payloads from transaction actions: %s\n", err)
-				continue
-			}
-			localSignatureHeader = &cb.SignatureHeader{}
-			if err := proto.Unmarshal(transaction.Actions[0].Header, localSignatureHeader); err != nil {
-				fmt.Printf("Error unmarshaling signature header: %s\n", err)
-				continue
-			}
-			localTransaction.TxActionSignatureHeader = getSignatureHeaderFromBlockData(localSignatureHeader)
-			//signatureHeader = &SignatureHeader{}
-			//signatureHeader.Certificate, _ = deserializeIdentity(localSignatureHeader.Creator)
-			//signatureHeader.Nonce = localSignatureHeader.Nonce
-			//localTransaction.TxActionSignatureHeader = signatureHeader
-
-			chaincodeProposalPayload := &peer.ChaincodeProposalPayload{}
-			if err := proto.Unmarshal(chaincodeActionPayload.ChaincodeProposalPayload, chaincodeProposalPayload); err != nil {
-				fmt.Printf("Error unmarshaling chaincode proposal payload: %s\n", err)
-				continue
-			}
-			chaincodeInvocationSpec := &peer.ChaincodeInvocationSpec{}
-			if err := proto.Unmarshal(chaincodeProposalPayload.Input, chaincodeInvocationSpec); err != nil {
-				fmt.Printf("Error unmarshaling chaincode invocationSpec: %s\n", err)
-				continue
-			}
-			localChaincodeSpec := &ChaincodeSpec{}
-			copyChaincodeSpecToLocalChaincodeSpec(localChaincodeSpec, chaincodeInvocationSpec.ChaincodeSpec)
-			localTransaction.ChaincodeSpec = localChaincodeSpec
-			copyEndorsementToLocalEndorsement(localTransaction, chaincodeActionPayload.Action.Endorsements)
-			proposalResponsePayload := &peer.ProposalResponsePayload{}
-			if err := proto.Unmarshal(chaincodeActionPayload.Action.ProposalResponsePayload, proposalResponsePayload); err != nil {
-				fmt.Printf("Error unmarshaling proposal response payload: %s\n", err)
-				continue
-			}
-			localTransaction.ProposalHash = proposalResponsePayload.ProposalHash
-			localTransaction.Response = chaincodeAction.Response
-			events := &peer.ChaincodeEvent{}
-			if err := proto.Unmarshal(chaincodeAction.Events, events); err != nil {
-				fmt.Printf("Error unmarshaling chaincode action events:%s\n", err)
-				continue
-			}
-			localTransaction.Events = events
-
-			txReadWriteSet := &rwset.TxReadWriteSet{}
-			if err := proto.Unmarshal(chaincodeAction.Results, txReadWriteSet); err != nil {
-				fmt.Printf("Error unmarshaling chaincode action results: %s\n", err)
-				continue
-			}
-
-			if len(chaincodeAction.Results) != 0 {
-				for _, nsRwset := range txReadWriteSet.NsRwset {
-					nsReadWriteSet := &NsReadWriteSet{}
-					kvRWSet := &kvrwset.KVRWSet{}
-					nsReadWriteSet.Namespace = nsRwset.Namespace
-					if err := proto.Unmarshal(nsRwset.Rwset, kvRWSet); err != nil {
-						fmt.Printf("Error unmarshaling tx read write set: %s\n", err)
-						continue
-					}
-					nsReadWriteSet.KVRWSet = kvRWSet
-					localTransaction.NsRwset = append(localTransaction.NsRwset, nsReadWriteSet)
-				}
-			}
-
-			// add the transaction validation a
-			addTransactionValidation(&localBlock, localTransaction, txIndex)
-			//append the transaction
-			localBlock.Transactions = append(localBlock.Transactions, localTransaction)
-		} else if cb.HeaderType(chHeader.Type) == cb.HeaderType_CONFIG {
-			configEnv := &cb.ConfigEnvelope{}
-			_, err = utils.UnmarshalEnvelopeOfType(envelope, cb.HeaderType_CONFIG, configEnv)
-			if err != nil {
-				fmt.Printf("Bad configuration envelope: %s\n", err)
-				continue
-			}
-
-			buf := &bytes.Buffer{}
-			if err := protolator.DeepMarshalJSON(buf, configEnv.Config); err != nil {
-				fmt.Printf("Bad DeepMarshalJSON Buffer : %s\n", err)
-				continue
-			}
-
-			payload, err := utils.GetPayload(configEnv.LastUpdate)
-			if err != nil {
-				fmt.Printf("Error getting payload from envelope: %s\n", err)
-				continue
-			}
-			chHeader, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
-			if err != nil {
-				fmt.Printf("Error unmarshaling channel header: %s\n", err)
-				continue
-			}
-
-			if len(localTransaction.ProposalHash) == 0 {
-				localTransaction.ProposalHash = util.ComputeSHA256(configEnv.LastUpdate.Payload)
-			}
-
-			localChannelHeader := &ChannelHeader{}
-			copyChannelHeaderToLocalChannelHeader(localChannelHeader, chHeader, headerExtension)
-
-			localTransaction.TxActionSignatureHeader = localTransaction.SignatureHeader
-
-			localBlock.Config = buf.String()
-			// add the transaction validation
-			addTransactionValidation(&localBlock, localTransaction, txIndex)
-			// append the transaction
-			localBlock.Transactions = append(localBlock.Transactions, localTransaction)
-		}
+		//append the transaction
+		localBlock.Transactions = append(localBlock.Transactions, locTx)
 	}
-
 	return localBlock
 }
 
 func ParseBlock(blockEvent *cb.Block, size uint64) Block {
 	return processBlock(blockEvent, size)
+}
+
+func ParseProcessedTransaction(data []byte) (*Transaction, string, error) {
+	if data == nil {
+		return nil, "", fmt.Errorf("the data is empty")
+	}
+	tx := &peer.ProcessedTransaction{}
+	err := proto.Unmarshal(data, tx)
+	if err != nil {
+		return nil, "", err
+	}
+	txa, bufStr, err := parseTransactionEvn(tx.TransactionEnvelope)
+	if err != nil {
+		return nil, bufStr, err
+	}
+	txa.ValidationCode = uint8(tx.ValidationCode)
+	txa.ValidationCodeName =  peer.TxValidationCode_name[int32(txa.ValidationCode)]
+	txa.Size = uint64(len(data))
+	return txa, bufStr, nil
+}
+
+func parseTransactionEvn(envelope *cb.Envelope) (*Transaction, string, error) {
+	if envelope == nil {
+		return nil, "", fmt.Errorf("the envelope is empty")
+	}
+	var bufstring string
+	localTransaction := &Transaction{}
+	//Get envelope which is stored as byte array in the data field.
+	localTransaction.Signature = envelope.Signature
+	//Get payload from envelope struct which is stored as byte array.
+	payload, err := utils.GetPayload(envelope)
+	if err != nil {
+		return nil, "", fmt.Errorf("Error getting payload from envelope: %s\n", err)
+	}
+	chHeader, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
+	if err != nil {
+		return nil, "", fmt.Errorf("Error unmarshaling channel header: %s\n", err)
+	}
+	headerExtension := &peer.ChaincodeHeaderExtension{}
+	if err := proto.Unmarshal(chHeader.Extension, headerExtension); err != nil {
+		return nil, "", fmt.Errorf("Error unmarshaling chaincode header extension: %s\n", err)
+	}
+	localChannelHeader := &ChannelHeader{}
+	copyChannelHeaderToLocalChannelHeader(localChannelHeader, chHeader, headerExtension)
+
+	// Performance measurement code ends
+	localTransaction.ChannelHeader = localChannelHeader
+	localSignatureHeader := &cb.SignatureHeader{}
+	if err := proto.Unmarshal(payload.Header.SignatureHeader, localSignatureHeader); err != nil {
+		return nil, "", fmt.Errorf("Error unmarshaling signature header: %s\n", err)
+	}
+	localTransaction.SignatureHeader = getSignatureHeaderFromBlockData(localSignatureHeader)
+	//localTransaction.SignatureHeader.Nonce = localSignatureHeader.Nonce
+	//localTransaction.SignatureHeader.Certificate, _ = deserializeIdentity(localSignatureHeader.Creator)
+
+	if cb.HeaderType(chHeader.Type) == cb.HeaderType_ENDORSER_TRANSACTION {
+		transaction := &peer.Transaction{}
+		if err := proto.Unmarshal(payload.Data, transaction); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling transaction: %s\n", err)
+		}
+		chaincodeActionPayload, chaincodeAction, err := utils.GetPayloads(transaction.Actions[0])
+		if err != nil {
+			return nil, "", fmt.Errorf("Error getting payloads from transaction actions: %s\n", err)
+		}
+		localSignatureHeader = &cb.SignatureHeader{}
+		if err := proto.Unmarshal(transaction.Actions[0].Header, localSignatureHeader); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling signature header: %s\n", err)
+		}
+		localTransaction.TxActionSignatureHeader = getSignatureHeaderFromBlockData(localSignatureHeader)
+		//signatureHeader = &SignatureHeader{}
+		//signatureHeader.Certificate, _ = deserializeIdentity(localSignatureHeader.Creator)
+		//signatureHeader.Nonce = localSignatureHeader.Nonce
+		//localTransaction.TxActionSignatureHeader = signatureHeader
+
+		chaincodeProposalPayload := &peer.ChaincodeProposalPayload{}
+		if err := proto.Unmarshal(chaincodeActionPayload.ChaincodeProposalPayload, chaincodeProposalPayload); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling chaincode proposal payload: %s\n", err)
+		}
+		chaincodeInvocationSpec := &peer.ChaincodeInvocationSpec{}
+		if err := proto.Unmarshal(chaincodeProposalPayload.Input, chaincodeInvocationSpec); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling chaincode invocationSpec: %s\n", err)
+		}
+		localChaincodeSpec := &ChaincodeSpec{}
+		copyChaincodeSpecToLocalChaincodeSpec(localChaincodeSpec, chaincodeInvocationSpec.ChaincodeSpec)
+		localTransaction.ChaincodeSpec = localChaincodeSpec
+		copyEndorsementToLocalEndorsement(localTransaction, chaincodeActionPayload.Action.Endorsements)
+		proposalResponsePayload := &peer.ProposalResponsePayload{}
+		if err := proto.Unmarshal(chaincodeActionPayload.Action.ProposalResponsePayload, proposalResponsePayload); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling proposal response payload: %s\n", err)
+		}
+		localTransaction.ProposalHash = proposalResponsePayload.ProposalHash
+		localTransaction.Response = chaincodeAction.Response
+		events := &peer.ChaincodeEvent{}
+		if err := proto.Unmarshal(chaincodeAction.Events, events); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling chaincode action events:%s\n", err)
+		}
+		localTransaction.Events = events
+
+		txReadWriteSet := &rwset.TxReadWriteSet{}
+		if err := proto.Unmarshal(chaincodeAction.Results, txReadWriteSet); err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling chaincode action results: %s\n", err)
+		}
+
+		if len(chaincodeAction.Results) != 0 {
+			for _, nsRwset := range txReadWriteSet.NsRwset {
+				nsReadWriteSet := &NsReadWriteSet{}
+				kvRWSet := &kvrwset.KVRWSet{}
+				nsReadWriteSet.Namespace = nsRwset.Namespace
+				if err := proto.Unmarshal(nsRwset.Rwset, kvRWSet); err != nil {
+					return nil, "", fmt.Errorf("Error unmarshaling tx read write set: %s\n", err)
+				}
+				nsReadWriteSet.KVRWSet = kvRWSet
+				localTransaction.NsRwset = append(localTransaction.NsRwset, nsReadWriteSet)
+			}
+		}
+
+	} else if cb.HeaderType(chHeader.Type) == cb.HeaderType_CONFIG {
+		configEnv := &cb.ConfigEnvelope{}
+		_, err = utils.UnmarshalEnvelopeOfType(envelope, cb.HeaderType_CONFIG, configEnv)
+		if err != nil {
+			return nil, "", fmt.Errorf("Bad configuration envelope: %s\n", err)
+		}
+
+		buf := &bytes.Buffer{}
+		if err := protolator.DeepMarshalJSON(buf, configEnv.Config); err != nil {
+			return nil, "", fmt.Errorf("Bad DeepMarshalJSON Buffer : %s\n", err)
+		}
+		bufstring = buf.String()
+		payload, err := utils.GetPayload(configEnv.LastUpdate)
+		if err != nil {
+			return nil, "", fmt.Errorf("Error getting payload from envelope: %s\n", err)
+		}
+		chHeader, err := utils.UnmarshalChannelHeader(payload.Header.ChannelHeader)
+		if err != nil {
+			return nil, "", fmt.Errorf("Error unmarshaling channel header: %s\n", err)
+		}
+
+		if len(localTransaction.ProposalHash) == 0 {
+			localTransaction.ProposalHash = ledgerUtil.ComputeHash(configEnv.LastUpdate.Payload)
+		}
+
+		localChannelHeader := &ChannelHeader{}
+		copyChannelHeaderToLocalChannelHeader(localChannelHeader, chHeader, headerExtension)
+
+		localTransaction.TxActionSignatureHeader = localTransaction.SignatureHeader
+	}
+	return localTransaction, bufstring, nil
 }

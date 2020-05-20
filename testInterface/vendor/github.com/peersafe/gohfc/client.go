@@ -435,34 +435,6 @@ func (c *FabricClient) Query(identity Identity, chainCode ChainCode, peers []str
 	}
 	return response, nil
 }
-
-func (c *FabricClient) QueryByEvent(identity Identity, chainCode ChainCode, peers []string) ([]*QueryResponse, error) {
-	execPeers := c.getEventPeers(peers)
-	if len(peers) != len(execPeers) {
-		return nil, ErrPeerNameNotFound
-	}
-	prop, err := createTransactionProposal(identity, chainCode, c.Crypto)
-	if err != nil {
-		return nil, err
-	}
-	proposal, err := signedProposal(prop.proposal, identity, c.Crypto)
-	if err != nil {
-		return nil, err
-	}
-	r := sendToPeers(execPeers, proposal)
-	response := make([]*QueryResponse, len(r))
-	for idx, p := range r {
-		ic := QueryResponse{PeerName: p.Name, Error: p.Err}
-		if p.Err != nil {
-			ic.Error = p.Err
-		} else {
-			ic.Response = p.Response
-		}
-		response[idx] = &ic
-	}
-	return response, nil
-}
-
 // Invoke execute chainCode for ledger update. Peers that simulate the chainCode must be enough to satisfy the policy.
 // When Invoke returns with success this is not granite that ledger was update. Invoke will return `transactionId`.
 // This ID will be transactionId in events.

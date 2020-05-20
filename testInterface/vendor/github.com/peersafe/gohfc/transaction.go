@@ -5,16 +5,17 @@ License: Apache License Version 2.0
 package gohfc
 
 import (
-	"github.com/golang/protobuf/proto"
-	"github.com/hyperledger/fabric/protos/msp"
-	"encoding/pem"
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/hyperledger/fabric/protos/common"
+	"encoding/pem"
+	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
-	"time"
+	"github.com/hyperledger/fabric/protos/common"
+	"github.com/hyperledger/fabric/protos/msp"
 	"github.com/hyperledger/fabric/protos/peer"
-	"bytes"
+	"time"
 )
 
 // TransactionId represents transaction identifier. TransactionId is the unique transaction number.
@@ -211,7 +212,7 @@ func createTransactionProposal(identity Identity, cc ChainCode, crypto CryptoSui
 	}
 
 	SetArgsTxid(txId.TransactionId, &cc.Args)
-	
+
 	spec, err := chainCodeInvocationSpec(cc)
 	if err != nil {
 		return nil, err
@@ -253,23 +254,21 @@ func decodeChainCodeQueryResponse(data []byte) ([]*peer.ChaincodeInfo, error) {
 }
 
 func createTransaction(proposal []byte, endorsement []*PeerResponse) ([]byte, error) {
-	var propResp *peer.ProposalResponse
-	var pl []byte
+	var firstProp []byte
 	mEndorsements := make([]*peer.Endorsement, 0, len(endorsement))
 	for _, e := range endorsement {
-		if e.Err == nil && e.Response.Response.Status == 200 {
-			propResp = e.Response
-			mEndorsements = append(mEndorsements, e.Response.Endorsement)
-			if pl == nil {
-				pl = e.Response.Payload
-			}
-		} else {
-			if e.Err != nil {
-				return nil, e.Err
-			}
-			return nil, ErrBadTransactionStatus
+		if e.Err != nil {
+			return nil, e.Err
 		}
-		if bytes.Compare(pl, e.Response.Payload) != 0 {
+		if e.Response.Response.Status != 200 {
+			return nil, fmt.Errorf(e.Response.Response.Message)
+		}
+		if firstProp == nil {
+			firstProp = e.Response.Payload
+		}
+		mEndorsements = append(mEndorsements, e.Response.Endorsement)
+
+		if bytes.Compare(firstProp, e.Response.Payload) != 0 {
 			return nil, ErrEndorsementsDoNotMatch
 		}
 	}
@@ -303,7 +302,7 @@ func createTransaction(proposal []byte, endorsement []*PeerResponse) ([]byte, er
 
 	payload, err := proto.Marshal(&peer.ChaincodeActionPayload{
 		Action: &peer.ChaincodeEndorsedAction{
-			ProposalResponsePayload: propResp.Payload,
+			ProposalResponsePayload: firstProp,
 			Endorsements:            mEndorsements,
 		},
 		ChaincodeProposalPayload: proposedPayload,

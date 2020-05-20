@@ -150,11 +150,6 @@ func (sdk *sdkHandler) Query(args []string, channelName, chaincodeName string) (
 
 // Query query qscc ,if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryResponse, error) {
-	peerNames := getSendPeerName()
-	if len(peerNames) == 0 {
-		return nil, fmt.Errorf("config peer order is err")
-	}
-
 	mspId := handler.client.Channel.LocalMspId
 	if channelName == "" || mspId == "" {
 		return nil, fmt.Errorf("channelName or mspid is empty")
@@ -167,7 +162,7 @@ func (sdk *sdkHandler) QueryByQscc(args []string, channelName string) ([]*QueryR
 		Args:      args,
 	}
 
-	return sdk.client.Query(*sdk.identity, chaincode, []string{peerNames[0]})
+	return sdk.client.Query(*sdk.identity, chaincode, []string{eventName})
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
@@ -199,6 +194,30 @@ func (sdk *sdkHandler) GetBlockByNumber(blockNum uint64, channelName string) (*c
 }
 
 // if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
+func (sdk *sdkHandler) GetTransactionById(txId string, channelName string) (*parseBlock.Transaction, error) {
+	if len(channelName) == 0 {
+		channelName = sdk.client.Channel.ChannelId
+	}
+	if txId == "" {
+		return nil, fmt.Errorf("txid is empty")
+	}
+	args := []string{"GetTransactionByID", channelName, txId}
+	logger.Debugf("GetTransactionByID chainId %s txId %s", channelName, txId)
+	resps, err := sdk.QueryByQscc(args, channelName)
+	if err != nil {
+		return nil, fmt.Errorf("can not get installed chaincodes :%s", err.Error())
+	} else if len(resps) == 0 {
+		return nil, fmt.Errorf("GetTransactionByID empty response from peer")
+	}
+	if resps[0].Error != nil {
+		return nil, resps[0].Error
+	}
+	data := resps[0].Response.Response.Payload
+	tx, _, err := parseBlock.ParseProcessedTransaction(data)
+	return tx, err
+}
+
+// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
 func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 	if len(channelName) == 0 {
 		channelName = sdk.client.Channel.ChannelId
@@ -206,46 +225,6 @@ func (sdk *sdkHandler) GetBlockHeight(channelName string) (uint64, error) {
 
 	args := []string{"GetChainInfo", channelName}
 	resps, err := sdk.QueryByQscc(args, channelName)
-	if err != nil {
-		return 0, err
-	} else if len(resps) == 0 {
-		return 0, fmt.Errorf("GetChainInfo is empty respons from peer qscc")
-	}
-
-	if resps[0].Error != nil {
-		return 0, resps[0].Error
-	}
-
-	data := resps[0].Response.Response.Payload
-	var chainInfo = new(common.BlockchainInfo)
-	err = proto.Unmarshal(data, chainInfo)
-	if err != nil {
-		return 0, fmt.Errorf("GetChainInfo unmarshal from payload failed: %s", err.Error())
-	}
-	return chainInfo.Height, nil
-}
-
-// if channelName ,chaincodeName is nil that use by client_sdk.yaml set value
-func (sdk *sdkHandler) GetBlockHeightByEventName(channelName string) (uint64, error) {
-	if len(channelName) == 0 {
-		channelName = sdk.client.Channel.ChannelId
-	}
-	args := []string{"GetChainInfo", channelName}
-	mspId := handler.client.Channel.LocalMspId
-	if channelName == "" || mspId == "" {
-		return 0, fmt.Errorf("channelName or mspid is empty")
-	}
-	if eventName == "" {
-		return 0, fmt.Errorf("event peername is empty")
-	}
-	chaincode := ChainCode{
-		ChannelId: channelName,
-		Type:      ChaincodeSpec_GOLANG,
-		Name:      QSCC,
-		Args:      args,
-	}
-
-	resps, err := sdk.client.QueryByEvent(*sdk.identity, chaincode, []string{eventName})
 	if err != nil {
 		return 0, err
 	} else if len(resps) == 0 {

@@ -576,22 +576,28 @@
 			"revisionTime": "2020-04-17T10:21:55Z"
 		},
 		{
-			"checksumSHA1": "9opu6MPIKPzmrM1DCno0t2i9rx4=",
+			"checksumSHA1": "Y1GYfIwyyX1m7QkE5zgOwYz340Q=",
 			"path": "github.com/peersafe/gohfc",
-			"revision": "a0741724cb5cb39fdb03353b27e759ce7c53d936",
-			"revisionTime": "2020-04-30T05:44:42Z"
+			"revision": "5d7d89053d405a778b3b5f4a7fd144df8846e59c",
+			"revisionTime": "2020-05-14T09:19:59Z"
 		},
 		{
-			"checksumSHA1": "zl3+Xa9HFjnVME+oG4E5p5RgCE8=",
+			"checksumSHA1": "8LsGhcScmky24o7a4rJwis3sDSg=",
 			"path": "github.com/peersafe/gohfc/parseBlock",
-			"revision": "a0741724cb5cb39fdb03353b27e759ce7c53d936",
-			"revisionTime": "2020-04-30T05:44:42Z"
+			"revision": "5d7d89053d405a778b3b5f4a7fd144df8846e59c",
+			"revisionTime": "2020-05-14T09:19:59Z"
+		},
+		{
+			"checksumSHA1": "gm0TDqkZWM/q5F6zSMzFaR1vmfA=",
+			"path": "github.com/peersafe/gohfc/testInterface",
+			"revision": "5d7d89053d405a778b3b5f4a7fd144df8846e59c",
+			"revisionTime": "2020-05-14T09:19:59Z"
 		},
 		{
 			"checksumSHA1": "A12q6l649IzNsX2X6EbvUZp/WRg=",
 			"path": "github.com/peersafe/gohfc/waitTxstatus",
-			"revision": "a0741724cb5cb39fdb03353b27e759ce7c53d936",
-			"revisionTime": "2020-04-30T05:44:42Z"
+			"revision": "5d7d89053d405a778b3b5f4a7fd144df8846e59c",
+			"revisionTime": "2020-05-14T09:19:59Z"
 		},
 		{
 			"checksumSHA1": "cozq4/7ioFamHmCA2IfgA1c+5Gc=",

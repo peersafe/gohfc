@@ -1,10 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,9 +28,12 @@ var (
 
 func main() {
 	fmt.Println("################CMD#####################")
-	fmt.Println("./testInterfaceGM -args=invoke,a,b,1")
-	fmt.Println("./testInterfaceGM -args=query,a")
-	fmt.Println("./testInterfaceGM -args=listenfull")
+	fmt.Println("./testInterface -args=invoke,a,b,1")
+	fmt.Println("./testInterface -args=query,a")
+	fmt.Println("./testInterface -args=listenfull")
+	fmt.Println("./testInterface -args=getblockheight")
+	fmt.Println("./testInterface -args=gettxbyid,txid")
+	fmt.Println("./testInterface -args=getblockbyno,number")
 	fmt.Println("#########################################")
 	var args ArrayValue
 	flag.Var(&args, "args", "Input array to iterate through.")
@@ -77,6 +82,39 @@ func main() {
 			return
 		}
 		logger.Debugf("----query--result--%s\n", resVal[0].Response.Response.GetPayload())
+	case "getblockheight":
+		number, err := gohfc.GetHandler().GetBlockHeight("")
+		if err != nil {
+			logger.Errorf("getblockheight err = %s", err.Error())
+			return
+		}
+		fmt.Printf("getblockheight----%d\n", number)
+	case "gettxbyid":
+		tx, err := gohfc.GetHandler().GetTransactionById(args[1], "")
+		if err != nil {
+			logger.Errorf("gettxbyid err = %s", err.Error())
+			return
+		}
+		str, _ := json.Marshal(tx)
+		fmt.Printf("getblockbyno----%s\n", str)
+	case "getblockbyno":
+		strBlockNum, err := strconv.Atoi(args[1])
+		if err != nil {
+			logger.Errorf("getblockbyno a err = %s", err.Error())
+			return
+		}
+		block, err := gohfc.GetHandler().GetBlockByNumber(uint64(strBlockNum), "")
+		if err != nil {
+			logger.Errorf("getblockbyno b err = %s", err.Error())
+			return
+		}
+		plBlock, err := gohfc.GetHandler().ParseCommonBlock(block)
+		if err != nil {
+			logger.Errorf("getblockbyno c err = %s", err.Error())
+			return
+		}
+		str, _ := json.Marshal(plBlock)
+		fmt.Printf("getblockbyno----%s\n", str)
 	case "listenfull":
 		ch, err := gohfc.GetHandler().ListenEventFullBlock("", 3)
 		if err != nil {
