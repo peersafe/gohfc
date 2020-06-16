@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 //sdk handler
@@ -275,6 +276,7 @@ func (sdk *sdkHandler) HandleTxStatus(channelName string) error {
 		for {
 			select {
 			case filterBlock := <-filterBlockChan:
+				waitTxstatus.GlobalBlockNumber.Put(filterBlock.BlockHeight)
 				for _, tx := range filterBlock.Transactions {
 					waitTxstatus.PublishTxStatus(tx.Id, tx.Status)
 				}
@@ -387,4 +389,49 @@ func SetArgsTxid(txid string, args *[]string) {
 		//logger.Debugf("SetArgsTxid msg is %s", tempData)
 		(*args)[1] = string(tempData)
 	}
+}
+
+func (sdk *sdkHandler) CheckBlockSyncState() {
+	latestBlock, err := sdk.GetBlockHeight("")
+	if err != nil {
+		panic(fmt.Errorf("getblockHeight failed! err= %s", err.Error()))
+	}
+	logger.Warningf("the Current block Number: %d", latestBlock-1)
+	sdk.SetCurrentBlockNumber(latestBlock - 1)
+	checkTime := 20 * time.Second
+	failedTimes := 0
+	ticker := time.NewTicker(checkTime)
+	for {
+		select {
+		case <-ticker.C:
+			if failedTimes >= 3 {
+				panic(fmt.Errorf("CheckBlockSyncState failed times is: 3"))
+			}
+			recordBlockNum := waitTxstatus.GlobalBlockNumber.Get()
+			curChainBlockHeight, err := sdk.GetBlockHeight("")
+			if err != nil {
+				failedTimes++
+				logger.Warningf("sdk GetBlockHeight err: %s", err.Error())
+				continue
+			}
+			curChainBlockNum := curChainBlockHeight - 1
+			if recordBlockNum != curChainBlockNum {
+				logger.Warningf("It's different curChainBlockNum=%d, recordBlockNum=%d", curChainBlockNum, recordBlockNum)
+				failedTimes++
+			} else {
+				//logger.Debugf("It's already sync block. curChainBlockNum=%d, recordBlockNum=%d", curChainBlockNum, recordBlockNum)
+				failedTimes = 0
+				continue
+			}
+
+			logger.Warningf("CheckBlockSyncState failed for %d times.", failedTimes)
+			if failedTimes >= 3 {
+				panic(fmt.Errorf("CheckBlockSyncState failed times is: 3"))
+			}
+		}
+	}
+}
+
+func (sdk *sdkHandler) SetCurrentBlockNumber(num uint64) {
+	waitTxstatus.GlobalBlockNumber.Put(num)
 }

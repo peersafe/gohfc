@@ -527,7 +527,7 @@ func (c *FabricClient) SyncInvoke(identity Identity, chainCode ChainCode, peers 
 		}
 	case err := <-reg.Errch:
 		return nil, err
-	case <-time.After(60 * time.Second):
+	case <-time.After(30 * time.Second):
 		return nil, fmt.Errorf("tx %s failed wait txstatus time out 30s", prop.transactionId)
 	}
 	return &InvokeResponse{Status: reply.Status, TxID: prop.transactionId}, nil

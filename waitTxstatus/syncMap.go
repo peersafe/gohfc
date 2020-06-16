@@ -9,6 +9,11 @@ type SyncMap struct {
 	*sync.RWMutex
 }
 
+type SyncBlockNumber struct {
+	blockNumber uint64
+	*sync.RWMutex
+}
+
 func NewSyncMap(data map[string]TxChan) *SyncMap {
 	return &SyncMap{data, &sync.RWMutex{}}
 }
@@ -43,3 +48,22 @@ func (d *SyncMap) Delete(key string) (TxChan, bool) {
 	}
 	return oldValue, ok
 }
+
+
+func NewSyncBlockNumber() *SyncBlockNumber {
+	return &SyncBlockNumber{0, &sync.RWMutex{}}
+}
+
+func (d *SyncBlockNumber) Put(num uint64) {
+	d.Lock()
+	defer d.Unlock()
+	d.blockNumber = num
+}
+
+func (d *SyncBlockNumber) Get() uint64 {
+	d.RLock()
+	defer d.RUnlock()
+	return d.blockNumber
+}
+
+

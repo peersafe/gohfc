@@ -10,10 +10,12 @@ var (
 	//logger            = logging.MustGetLogger("sdk")
 	GlobalEventChan   = make(chan *TxStatusReg, 100)
 	GlobalTxStatusMap *SyncMap
+	GlobalBlockNumber *SyncBlockNumber
 )
 
 func init() {
 	GlobalTxStatusMap = NewSyncMap(make(map[string]TxChan))
+	GlobalBlockNumber = NewSyncBlockNumber()
 }
 
 type TxStatusReg struct {
