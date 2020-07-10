@@ -2,6 +2,8 @@ package gohfc
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -39,7 +41,6 @@ func InitSDK(configPath string) error {
 	if err != nil {
 		return err
 	}
-
 	if err := SetLogLevel(clientConfig.LogLevel, "sdk"); err != nil {
 		return fmt.Errorf("setLogLevel err: %s\n", err.Error())
 	}
@@ -63,6 +64,19 @@ func InitSDK(configPath string) error {
 	handler.identity, err = LoadCertFromFile(cert, prikey)
 	if err != nil {
 		return err
+	}
+	//check sdk crypto type don`t match private key
+	if key, ok := handler.identity.PrivateKey.(*ecdsa.PrivateKey); ok {
+		switch key.Curve {
+		case elliptic.P256(), elliptic.P384(), elliptic.P521():
+			if strings.ToUpper(clientConfig.CryptoConfig.Family) != "ECDSA" {
+				return fmt.Errorf("the sdk crypto type %s don`t match private key", clientConfig.CryptoConfig.Family)
+			}
+		default:
+			if strings.ToUpper(clientConfig.CryptoConfig.Family) == "ECDSA" {
+				return fmt.Errorf("the sdk crypto type %s don`t match private key", clientConfig.CryptoConfig.Family)
+			}
+		}
 	}
 	handler.identity.MspId = handler.client.Channel.LocalMspId
 
