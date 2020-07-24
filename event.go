@@ -162,6 +162,7 @@ func (e *EventListener) Listen(response chan<- parseBlock.Block, filterResponse 
 				response <- parseBlock.Block{Error: err}
 				return
 			}
+
 			size := uint64(len(msg.String()))
 			switch t := msg.Type.(type) {
 			case *peer.DeliverResponse_Block:
