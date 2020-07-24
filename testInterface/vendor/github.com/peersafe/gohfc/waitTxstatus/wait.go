@@ -8,12 +8,14 @@ import (
 
 var (
 	//logger            = logging.MustGetLogger("sdk")
-	GlobalEventChan   = make(chan *TxStatusReg, 100)
+	GlobalEventChan   = make(chan *TxStatusReg, 2000)
 	GlobalTxStatusMap *SyncMap
+	GlobalBlockNumber *SyncBlockNumber
 )
 
 func init() {
 	GlobalTxStatusMap = NewSyncMap(make(map[string]TxChan))
+	GlobalBlockNumber = NewSyncBlockNumber()
 }
 
 type TxStatusReg struct {

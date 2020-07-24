@@ -33,7 +33,9 @@ const timeout = 5
 
 // Broadcast Broadcast envelope to orderer for execution.
 func (o *Orderer) Broadcast(envelope *common.Envelope) (*orderer.BroadcastResponse, error) {
-	bcc, err := o.client.Broadcast(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	bcc, err := o.client.Broadcast(ctx)
 	if err != nil {
 		return nil, err
 	}

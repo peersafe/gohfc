@@ -34,6 +34,12 @@ var (
 	orRulePeerNames []string
 )
 
+type FuncGetRAMBLock func() (uint64, error)
+
+// LocalProvider returns local client context
+type FuncListenFilterBlock func(channelName string, startNum int, response chan<- EventBlockResponse) error
+type FuncListenFullBlock func(channelName string, startNum int, response chan<- parseBlock.Block) error
+
 func InitSDK(configPath string) error {
 	// initialize Fabric client
 	var err error
@@ -286,6 +292,10 @@ func (sdk *sdkHandler) HandleTxStatus(channelName string) error {
 		cancel()
 		return err
 	}
+	RamBlock := func() (uint64, error) {
+		return waitTxstatus.GlobalBlockNumber.Get(), nil
+	}
+	go sdk.JudgeFilterEventConnect(RamBlock, sdk.EventFilterBlock, filterBlockChan)
 	go func() {
 		for {
 			select {
@@ -405,47 +415,116 @@ func SetArgsTxid(txid string, args *[]string) {
 	}
 }
 
-func (sdk *sdkHandler) CheckBlockSyncState() {
-	latestBlock, err := sdk.GetBlockHeight("")
+func (sdk *sdkHandler) SetCurrentBlockNumber(num uint64) {
+	waitTxstatus.GlobalBlockNumber.Put(num)
+}
+
+func (sdk *sdkHandler) JudgeFilterEventConnect(fRamBlock FuncGetRAMBLock, fLitsen FuncListenFilterBlock, ch chan<- EventBlockResponse) {
+	interval := 5
+	OldRamBlockNum, err := fRamBlock()
 	if err != nil {
-		panic(fmt.Errorf("getblockHeight failed! err= %s", err.Error()))
+		panic("-JudgeFilterEventConnect-fRamBlock-err" + err.Error())
 	}
-	logger.Warningf("the Current block Number: %d", latestBlock-1)
-	sdk.SetCurrentBlockNumber(latestBlock - 1)
-	checkTime := 20 * time.Second
+	ticker := time.NewTicker(time.Second * time.Duration(interval))
 	failedTimes := 0
-	ticker := time.NewTicker(checkTime)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
-			if failedTimes >= 3 {
-				panic(fmt.Errorf("CheckBlockSyncState failed times is: 3"))
-			}
-			recordBlockNum := waitTxstatus.GlobalBlockNumber.Get()
-			curChainBlockHeight, err := sdk.GetBlockHeight("")
+			curChainHeight, err := sdk.GetBlockHeight("")
 			if err != nil {
-				failedTimes++
-				logger.Warningf("sdk GetBlockHeight err: %s", err.Error())
-				continue
-			}
-			curChainBlockNum := curChainBlockHeight - 1
-			if recordBlockNum != curChainBlockNum {
-				logger.Warningf("It's different curChainBlockNum=%d, recordBlockNum=%d", curChainBlockNum, recordBlockNum)
-				failedTimes++
+				logger.Errorf("-JudgeFilterEventConnect-GetBlockHeight-err %s", err.Error())
 			} else {
-				//logger.Debugf("It's already sync block. curChainBlockNum=%d, recordBlockNum=%d", curChainBlockNum, recordBlockNum)
-				failedTimes = 0
-				continue
+				NewRamBlockNum, err := fRamBlock()
+				if err != nil {
+					logger.Errorf("-JudgeFilterEventConnect-fRamBlock-err %s", err.Error())
+					continue
+				}
+				//本地内存区块高度不变同时链上区块高度大于本地区块高度
+				if OldRamBlockNum == NewRamBlockNum && curChainHeight > NewRamBlockNum+1 {
+					logger.Errorf("--zyf-curBlockHeight=%d old=%d new=%d--\n", curChainHeight, OldRamBlockNum, NewRamBlockNum)
+					failedTimes++
+					logger.Errorf("-JudgeFilterEventConnect-block num diff times %d", failedTimes)
+					if failedTimes == 2 {
+						failedTimes = 0
+						sdk.client.Event.DisConnect()
+						logger.Errorf("--zyf-curBlockHeight=%d old=%d new=%d--\n", curChainHeight, OldRamBlockNum, NewRamBlockNum)
+						if err := fLitsen("", int(NewRamBlockNum), ch); err != nil {
+							logger.Errorf("-JudgeFilterEventConnect-reconnect err %s", err.Error())
+						}
+					}
+				} else {
+					OldRamBlockNum = NewRamBlockNum
+				}
 			}
+		}
+	}
+}
+func (sdk *sdkHandler) JudgeFullEventConnect(fRamBlock FuncGetRAMBLock, fLitsen FuncListenFullBlock, ch chan<- parseBlock.Block) {
+	interval := 5
+	OldRamBlockNum, err := fRamBlock()
+	if err != nil {
+		panic("-JudgeFullEventConnect-fRamBlock-err" + err.Error())
+	}
 
-			logger.Warningf("CheckBlockSyncState failed for %d times.", failedTimes)
-			if failedTimes >= 3 {
-				panic(fmt.Errorf("CheckBlockSyncState failed times is: 3"))
+	ticker := time.NewTicker(time.Second * time.Duration(interval))
+	failedTimes := 0
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			curChainHeight, err := sdk.GetBlockHeight("")
+			if err != nil {
+				logger.Errorf("-JudgeFullEventConnect-GetBlockHeight-err %s", err.Error())
+			} else {
+				NewRamBlockNum, err := fRamBlock()
+				if err != nil {
+					logger.Errorf("-JudgeFullEventConnect-fRamBlock-err %s", err.Error())
+					continue
+				}
+				//本地内存区块高度不变同时链上区块高度大于本地区块高度
+				if OldRamBlockNum == NewRamBlockNum && curChainHeight > NewRamBlockNum+1 {
+					failedTimes++
+					logger.Errorf("-JudgeFullEventConnect-block num diff times %d", failedTimes)
+					if failedTimes == 2 {
+						failedTimes = 0
+						sdk.client.Event.DisConnect()
+						if err := fLitsen("", int(NewRamBlockNum), ch); err != nil {
+							logger.Errorf("-JudgeFullEventConnect-reconnect err %s", err.Error())
+						}
+					}
+				} else {
+					OldRamBlockNum = NewRamBlockNum
+				}
 			}
 		}
 	}
 }
 
-func (sdk *sdkHandler) SetCurrentBlockNumber(num uint64) {
-	waitTxstatus.GlobalBlockNumber.Put(num)
+func (sdk *sdkHandler) EventFilterBlock(channelName string, startNum int, ch chan<- EventBlockResponse) error {
+	if len(channelName) == 0 {
+		channelName = sdk.client.Channel.ChannelId
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	err := sdk.client.ListenForFilteredBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
+	if err != nil {
+		cancel()
+		return err
+	}
+	return nil
+}
+
+func (sdk *sdkHandler) EventFullBlock(channelName string, startNum int, ch chan<- parseBlock.Block) error {
+	if len(channelName) == 0 {
+		channelName = sdk.client.Channel.ChannelId
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	err := sdk.client.ListenForFullBlock(ctx, *sdk.identity, startNum, eventName, channelName, ch)
+	if err != nil {
+		cancel()
+		return err
+	}
+
+	return nil
 }

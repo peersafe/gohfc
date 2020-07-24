@@ -10,35 +10,40 @@ orderers:
     host: 127.0.0.1:7050
     domainName: orderer0.ord1.example.com
     useTLS: true
-    tlsPath: /home/ubuntu/deploy/config/crypto-config/ordererOrganizations/ord1.example.com/orderers/orderer0.ord1.example.com/tls/server.crt
+    tlsPath: /home/vagrant/deploy/config/crypto-config/ordererOrganizations/ord1.example.com/orderers/orderer0.ord1.example.com/tls/server.crt
 peers:
   peer01:
     host: 127.0.0.1:7051
     domainName: peer0.org1.example.com
     useTLS: true
-    tlsPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsPath: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
   peer02:
     host: 127.0.0.1:6051
-    domainName: peer0.org2.example.com
+    domainName: peer1.org1.example.com
     useTLS: true
-    tlsPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+    tlsPath: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer1.org1.example.com/tls/ca.crt
+  peer03:
+    host: 127.0.0.1:5051
+    domainName: peer2.org1.example.com
+    useTLS: true
+    tlsPath: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer2.org1.example.com/tls/ca.crt
 
 eventPeers:
   peer01:
     host: 127.0.0.1:7051
     domainName: peer0.org1.example.com
     useTLS: true
-    tlsPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+    tlsPath: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
 channel:
-    mspConfigPath: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+    mspConfigPath: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
     localMspId:          Org1MSP
     channelId:           mychannel
     chaincodeName:       mycc
     chaincodeVersion:    1.0
     tlsMutual: false
-    clientCert: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
-    clientKey: /home/ubuntu/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
-
+    clientCert: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.crt
+    clientKey: /home/vagrant/deploy/config/crypto-config/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/server.key
+    minTarget: 2
 mq:
     mqAddress:
 #      - "amqp://xn:123456@10.10.255.103:5672/"

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/op/go-logging"
 	"github.com/peersafe/gohfc"
+	"github.com/peersafe/gohfc/parseBlock"
+	"github.com/peersafe/gohfc/waitTxstatus"
 	"strconv"
 	"strings"
 	"time"
@@ -55,16 +57,16 @@ func main() {
 	switch args[0] {
 	case "invoke":
 		ch := make(chan int)
-		for i := 0; i < 1; i++ {
-			go func() {
-				res, err := gohfc.GetHandler().SyncInvoke(args, "", "")
-				if err != nil {
-					logger.Error(err)
-					return
-				}
+		for i := 0; i < 100; i++ {
+			//go func() {
+			res, err := gohfc.GetHandler().SyncInvoke(args, "", "")
+			if err != nil {
+				logger.Error(err)
+				continue
+			}
 
-				logger.Debugf("----syncinvoke--TxID--%s\n", res.TxID)
-			}()
+			logger.Debugf("----syncinvoke--TxID--%s\n", res.TxID)
+			//}()
 		}
 		<-ch
 	case "query":
@@ -116,12 +118,19 @@ func main() {
 		str, _ := json.Marshal(plBlock)
 		fmt.Printf("getblockbyno----%s\n", str)
 	case "listenfull":
-		ch, err := gohfc.GetHandler().ListenEventFullBlock("", 3)
+		ch := make(chan parseBlock.Block)
+		err := gohfc.GetHandler().EventFullBlock("", -1, ch)
+		//err := gohfc.GetHandler().EventFilterBlock("", -1, ch)
 		if err != nil {
-			logger.Errorf("ListenEventFullBlock err = %s", err.Error())
+			logger.Errorf("EventFullBlock err = %s", err.Error())
 			return
 		}
-
+		aa := func() (uint64, error) {
+			return waitTxstatus.GlobalBlockNumber.Get(), nil
+		}
+		go func() {
+			gohfc.GetHandler().JudgeFullEventConnect(aa, gohfc.GetHandler().EventFullBlock, ch)
+		}()
 		for {
 			select {
 			case b := <-ch:
@@ -133,6 +142,7 @@ func main() {
 				if len(b.Transactions) == 0 {
 					logger.Debugf("ListenEventFullBlock Config Block BlockNumber= %d, ", b.Header.Number)
 				} else {
+					waitTxstatus.GlobalBlockNumber.Put(b.Header.Number)
 					//aa,_ := json.Marshal(b)
 					//logger.Debugf("---%s\n",aa)
 				}

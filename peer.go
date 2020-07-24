@@ -47,6 +47,12 @@ func (p *Peer) Endorse(resp chan *PeerResponse, prop *peer.SignedProposal) {
 	resp <- &PeerResponse{Response: proposalResp, Name: p.Name, Err: nil}
 }
 
+func (p *Peer) DisConnect() {
+	if p.conn != nil {
+		p.conn.Close()
+	}
+}
+
 // NewPeerFromConfig creates new peer from provided config
 func NewPeerFromConfig(cliConfig ChannelConfig, conf PeerConfig, cryptoSuite CryptoSuite) (*Peer, error) {
 	p := Peer{Uri: conf.Host, caPath: conf.TlsPath}

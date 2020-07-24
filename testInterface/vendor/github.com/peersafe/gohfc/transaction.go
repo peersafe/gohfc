@@ -189,12 +189,12 @@ func signedProposal(prop []byte, identity Identity, crypt CryptoSuite) (*peer.Si
 // response, so no need of complex synchronisation and wait groups
 func sendToPeers(peers []*Peer, prop *peer.SignedProposal) []*PeerResponse {
 	ch := make(chan *PeerResponse)
-	l := len(peers)
-	resp := make([]*PeerResponse, 0, l)
+	length := len(peers)
+	resp := make([]*PeerResponse, 0, length)
 	for _, p := range peers {
 		go p.Endorse(ch, prop)
 	}
-	for i := 0; i < l; i++ {
+	for i := 0; i < length; i++ {
 		resp = append(resp, <-ch)
 	}
 	close(ch)
